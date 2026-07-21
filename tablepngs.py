@@ -974,23 +974,31 @@ def png_dims(path):
     return w, h
 
 
-def pdf_to_pngs(pdf, out_dir, stem, dpi, tools):
-    """Rasterize every page of pdf to out_dir/<stem>-pNN.png. Returns list of paths."""
+def pdf_to_pngs(pdf, out_dir, stem, dpi, tools, first=None, last=None):
+    """Rasterize pdf to out_dir/<stem>-pNN.png. With first/last, only that
+    page range is rendered -- rasterizing a 130-page report to find one table
+    is otherwise the slowest step of the visual check. Returns list of paths."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     tmp_prefix = out_dir / f"__tp_{stem}"
     for old in out_dir.glob(f"__tp_{stem}-*.png"):
         old.unlink()
     if tools.raster == "pdftoppm":
-        rc, out = run([tools.raster_path, "-png", "-r", str(dpi),
+        rng = (["-f", str(first), "-l", str(last or first)]
+               if first is not None else [])
+        rc, out = run([tools.raster_path, "-png", "-r", str(dpi), *rng,
                        str(pdf), str(tmp_prefix)])
     elif tools.raster == "magick":
-        rc, out = run([tools.raster_path, "-density", str(dpi), str(pdf),
+        src = (f"{pdf}[{first - 1}-{(last or first) - 1}]"
+               if first is not None else str(pdf))
+        rc, out = run([tools.raster_path, "-density", str(dpi), src,
                        "-background", "white", "-alpha", "remove",
                        "-colorspace", "sRGB", str(tmp_prefix) + "-%03d.png"])
     else:  # gs
+        rng = ([f"-dFirstPage={first}", f"-dLastPage={last or first}"]
+               if first is not None else [])
         rc, out = run([tools.raster_path, "-dSAFER", "-dBATCH", "-dNOPAUSE",
-                       "-sDEVICE=png16m", f"-r{dpi}",
+                       "-sDEVICE=png16m", f"-r{dpi}", *rng,
                        "-dTextAlphaBits=4", "-dGraphicsAlphaBits=4",
                        "-o", str(tmp_prefix) + "-%03d.png", str(pdf)])
     if rc != 0:
@@ -1464,17 +1472,23 @@ def source_literal_tokens(content, kind="float"):
     return out
 
 
+def page_texts(pdf, tools, _cache={}):
+    """Normalized text of each page, extracted once per PDF. Re-extracting a
+    long document for every table is slow enough to matter on real reports."""
+    key = str(pdf)
+    if key not in _cache:
+        txt = extract_pdf_text(pdf, tools)
+        _cache[key] = ([] if txt is None
+                       else [norm_alnum(p) for p in txt.split("\f")])
+    return _cache[key]
+
+
 def pages_containing(pdf, probes, tools):
-    """Page numbers of `pdf` whose text layer contains any of `probes`.
-    One extraction for the whole file: pdftotext separates pages with a form
-    feed, so per-page scanning costs nothing extra and there is no page cap."""
+    """Page numbers of `pdf` whose text layer contains any of `probes`."""
     if not probes:
         return []
-    txt = extract_pdf_text(pdf, tools)
-    if txt is None:
-        return []
-    return [i for i, page in enumerate(txt.split("\f"), 1)
-            if any(pr in norm_alnum(page) for pr in probes)]
+    return [i for i, page in enumerate(page_texts(pdf, tools), 1)
+            if any(pr in page for pr in probes)]
 
 
 def build_reference_doc(text, masked, targets, preamble_end, aux_name=None):
@@ -1660,7 +1674,7 @@ def visual_compare(done, text, masked, preamble_end, build, imgdir, maindir,
                 ref_pages = []
     ref_map = dict(zip([t.index for t in prev_targets], ref_pages)) if ref_pages else {}
 
-    orig_raw = None
+    orig_raw = {}          # page number -> rendered PNG (rendered on demand)
     results = []
     for t in done:
         # --- content completeness (all table kinds, page-break invariant):
@@ -1690,11 +1704,16 @@ def visual_compare(done, text, masked, preamble_end, build, imgdir, maindir,
         if ref is None:
             pgs = pages_containing(orig_pdf, t.probes, tools)
             if pgs:
-                if orig_raw is None:
-                    orig_raw = pdf_to_pngs(orig_pdf, refdir, "origall",
-                                           max(110, args.dpi // 3), tools)
-                raw = orig_raw
-                picked = [raw[p - 1] for p in pgs if p - 1 < len(raw)]
+                # render only the pages this table appears on
+                picked = []
+                for p in pgs[:6]:
+                    if p not in orig_raw:
+                        got = pdf_to_pngs(orig_pdf, refdir, f"orig_p{p}",
+                                          max(110, args.dpi // 3), tools,
+                                          first=p, last=p)
+                        orig_raw[p] = got[0] if got else None
+                    if orig_raw[p] is not None:
+                        picked.append(orig_raw[p])
                 merged_ref = cmpdir / f"t{t.index:02d}-reference-origpages.png"
                 if picked and montage_vertical(picked, merged_ref, magick):
                     ref = merged_ref
