@@ -360,6 +360,76 @@ STYLE_BOUNDARY_RE = re.compile(
     r"(?:\[[^\]]*\])?\s*\{")
 
 
+# Declarations that legitimately style a table from outside it. Commands with
+# arguments must be listed explicitly, because carrying a command without its
+# arguments would break the snippet.
+STYLE_WITH_ARGS = {
+    "setlength": 2, "addtolength": 2, "renewcommand": 2, "def": 0,
+    "definecolor": 3, "captionsetup": 1, "rowcolors": 3, "arrayrulecolor": 1,
+    "setstretch": 1, "fontsize": 2, "selectfont": 0,
+}
+# Never carry these across: they are structure or content, not styling.
+STYLE_BLACKLIST = {
+    "begin", "end", "item", "caption", "captionof", "label", "ref", "cite",
+    "par", "newpage", "clearpage", "pagebreak", "footnote", "footnotetext",
+    "includegraphics", "input", "include", "hline", "toprule", "midrule",
+    "bottomrule", "cmidrule", "multicolumn", "multirow", "section",
+    "subsection", "subsubsection", "paragraph", "chapter", "textbf", "textit",
+    "emph", "text", "url", "href", "noindent", "indent",
+}
+
+
+def extract_style_declarations(chunk):
+    """Pull the styling declarations out of a run of LaTeX source.
+
+    Handles the two shapes that actually occur before a table:
+        \\begingroup\\footnotesize\\setlength{\\tabcolsep}{3pt}
+        {\\tabfigures\\footnotesize
+    The second leaves an unbalanced brace, so we keep the commands and drop
+    the braces -- in a snippet the group scope is the whole document anyway.
+    An unrecognised no-argument macro is kept (it is typically a preamble
+    switch such as \\tabfigures, and the snippet reuses that preamble); an
+    unrecognised macro that takes arguments is dropped, since keeping the
+    name without its arguments would break the compile."""
+    masked = mask_comments(chunk)
+    out = []
+    consumed = 0        # end of the last command WITH its arguments
+    for m in re.finditer(r"\\([a-zA-Z@]+)\*?", masked):
+        if m.start() < consumed:
+            continue    # inside an argument we already took verbatim
+        name = m.group(1)
+        if name in STYLE_BLACKLIST:
+            continue
+        i = m.end()
+        nargs = STYLE_WITH_ARGS.get(name)
+        if nargs:
+            j = i
+            try:
+                for _ in range(nargs):
+                    while j < len(masked) and masked[j] in " \t\n":
+                        j += 1
+                    if j < len(masked) and masked[j] == "{":
+                        j = match_brace(masked, j)
+                    elif j < len(masked) and masked[j] == "\\":
+                        k = re.match(r"\\[a-zA-Z@]+", masked[j:])
+                        j += k.end() if k else 1
+                    else:
+                        raise TPError("bad arg")
+            except (TPError, AssertionError):
+                continue
+            out.append(chunk[m.start():j])
+            consumed = j
+        else:
+            # keep only if not immediately followed by a brace argument
+            j = i
+            while j < len(masked) and masked[j] in " \t\n":
+                j += 1
+            if j < len(masked) and masked[j] == "{" and nargs is None:
+                continue
+            out.append(chunk[m.start():m.end()])
+    return "".join(out)
+
+
 def leading_style_context(text, masked, start, max_chars=600):
     """Formatting that applies to a table but is written OUTSIDE its
     environment, e.g.
@@ -376,31 +446,22 @@ def leading_style_context(text, masked, start, max_chars=600):
     boundary = window_start
     for m in STYLE_BOUNDARY_RE.finditer(masked, window_start, start):
         boundary = m.end()
-    prefix_masked = masked[boundary:start]
-    # Drop comment text: it is inert to LaTeX, but carrying it into the
-    # snippet would make its words look like table content to the
-    # completeness check.
-    prefix = "".join(
-        c for c, mc in zip(text[boundary:start], prefix_masked)
-        if mc != " " or c.isspace())
-    if "\\" not in prefix:          # nothing but comments/whitespace
-        return ""
-    # accept only if nothing but commands, their arguments and whitespace
-    residue = re.sub(r"\\[a-zA-Z@]+\*?", " ", prefix_masked)
-    residue = re.sub(r"\{[^{}]*\}|\[[^\]]*\]", " ", residue)
-    residue = re.sub(r"\{[^{}]*\}", " ", residue)
-    if re.search(r"[A-Za-z0-9]", residue):
-        return ""
-    # never carry an unbalanced group across -- it would break the snippet
-    depth = 0
-    for m in re.finditer(r"\\.|\{|\}", prefix_masked, re.S):
-        if m.group() == "{":
-            depth += 1
-        elif m.group() == "}":
-            depth -= 1
-            if depth < 0:
-                return ""
-    return prefix if depth == 0 else ""
+    # A closing brace before the table ends any group that could have styled
+    # it, so nothing before that point applies.
+    close = masked.rfind("}", boundary, start)
+    if close != -1:
+        # ...unless it closes a group opened after the boundary (e.g. the
+        # argument of \setlength). Only trust it if braces are unbalanced.
+        depth = 0
+        for m in re.finditer(r"\\.|\{|\}", masked[boundary:start], re.S):
+            if m.group() == "{":
+                depth += 1
+            elif m.group() == "}":
+                depth -= 1
+                if depth < 0:
+                    boundary = boundary + m.end()
+                    depth = 0
+    return extract_style_declarations(text[boundary:start])
 
 
 @dataclass
