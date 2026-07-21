@@ -36,7 +36,7 @@ BIBTEX = shutil.which("bibtex")
 
 CLEAN_PATTERNS = [
     "main_tablepngs", 
-    "main_tablepngs*", "*.aux", "*.log", "*.out", "*.toc", "*.lot", "*.lof",
+    "main_tablepngs*", "*.lot", "*.aux", "*.log", "*.out", "*.toc", "*.lot", "*.lof",
     "*.bbl", "*.blg", "*.fls", "*.fdb_latexmk", "main.pdf", "*.synctex.gz",
 ]
 

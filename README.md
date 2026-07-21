@@ -215,8 +215,9 @@ Useful flags:
 | `--list` | dry run: show the tables it found, touch nothing |
 | `--compare` | visual verification: re-render each table in context and check the PNG against it (needs ImageMagick) |
 | `--compare-threshold X` | pixel-difference tolerance for `--compare` (default 0.06) |
-| `--engine xelatex` | force an engine (default: auto-detect from magic comments / fontspec) |
+| `--engine xelatex` | force an engine (default: auto-detected, see below) |
 | `--dpi 600` | higher-resolution PNGs (default 300) |
+| `--page-height 0.99` | pack multi-page-table chunks tighter (default 0.96) |
 | `--only 2,5` / `--skip 3` | flatten only some tables (indices from `--list`) |
 | `--no-bare` | ignore tabulars that are not inside a float or longtable |
 | `--shell-escape` | pass through to the engine if your document needs it |
@@ -245,6 +246,7 @@ and matches its in-document rendering.
 | `06_fancy_styling` | colortbl stripes, siunitx S columns, multirow, tabularx, custom macros | pdflatex, lualatex |
 | `07_refs_cites` | `\citep` and `\ref` inside table cells (natbib + bibtex) | pdflatex |
 | `08_kitchen_sink` | all of the above plus a bare in-prose tabular, one document | all three |
+| `09_real_world_patterns` | patterns taken from a real report that broke earlier versions: a house `.sty`, `\counterwithin{table}{section}`, styling applied via `\begingroup` from outside the environment, a longtable caption with `\footnote` and a nested `\label`, comments inside table bodies, a macro inside a caption | pdflatex |
 
 The flattened document is visually indistinguishable from the original — the
 tables just happen to be images now:
@@ -292,6 +294,34 @@ Then, in any project: "flatten the tables in report.tex so the PDF converts
 to Word cleanly."
 
 ## Details worth knowing
+
+- **Engine detection.** In order: a `% !TEX program` magic comment, then the
+  engine recorded in a `.log`/`.xdv` from your last build, then a scan of the
+  preamble *and* any local `.sty`/`.cls` files it loads (so `fontspec` buried
+  inside a house style file is still found). If the baseline compile then
+  fails with an engine-mismatch error, the other engines are tried
+  automatically before giving up.
+- **Formatting applied from outside the table.** A table is often wrapped in
+  styling it does not contain:
+  ```latex
+  \begingroup\footnotesize\setlength{\tabcolsep}{3pt}
+  \begin{longtable}{...}
+  ```
+  That context is captured and reused, because rendering the table at the
+  wrong size changes its column widths — and an image wider than `\linewidth`
+  then gets scaled down, making the table smaller than it is in your document.
+- **Multi-page tables** are re-emitted as a one-column `longtable` of page
+  images. Rows break across pages natively, so the chunks stay in place
+  instead of floating, and the caption is reproduced verbatim in the same kind
+  of environment it came from — which keeps constructs like a `\footnote` or a
+  nested `\label` inside the caption working.
+- **Page count can grow.** A rasterized table cannot split across a page the
+  way a live longtable can, so a big table that used to start mid-page now
+  moves to the next one. The run reports the before/after page count and warns
+  if the document grew more than 10%.
+- **Unsupported table environments are named, not silently skipped.** If the
+  document uses something tablepngs cannot flatten, it says so with the line
+  number and what to do about it.
 
 - **Cites and refs inside cells.** The snippet compile imports your main
   document's `.aux`, so `\ref` and bibtex/natbib `\cite` inside table cells

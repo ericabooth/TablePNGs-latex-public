@@ -47,8 +47,24 @@ __version__ = "1.0.0"
 # Environment families
 # --------------------------------------------------------------------------
 FLOAT_ENVS = ["table", "table*", "sidewaystable", "sidewaystable*"]
-LONG_ENVS = ["longtable", "longtabu", "xltabular", "supertabular"]
-BARE_ENVS = ["tabular", "tabular*", "tabularx", "tabulary", "tabu", "NiceTabular"]
+LONG_ENVS = ["longtable", "longtabu", "xltabular", "supertabular", "longtblr"]
+BARE_ENVS = ["tabular", "tabular*", "tabularx", "tabulary", "tabu", "NiceTabular",
+             "tblr", "talltblr"]
+
+# Table-ish environments tablepngs does NOT flatten, and what to tell the user.
+# Being explicit beats silently leaving a table as live text: a silent skip
+# looks identical to success right up until Word mangles that one table.
+UNSUPPORTED_ENVS = {
+    "tabbing": "a \\tabbing block, which is laid out as text rather than as "
+               "a table; tablepngs cannot isolate it reliably",
+    "deluxetable": "an AASTeX deluxetable, which carries its own caption and "
+                   "float machinery",
+    "deluxetable*": "an AASTeX deluxetable",
+    "supertabular*": "supertabular* (the unstarred supertabular is supported)",
+    "xtabular": "xtabular from the xtab package",
+    "ctable": "a ctable, which builds its own float",
+    "TAB": "a TAB environment from the easytable/tabls family",
+}
 VERBATIM_ENVS = {
     "verbatim", "verbatim*", "Verbatim", "Verbatim*", "lstlisting",
     "minted", "alltt", "comment", "filecontents", "filecontents*",
@@ -335,6 +351,58 @@ def find_command_spans(masked, command, star_ok=True, opt_ok=True):
 # --------------------------------------------------------------------------
 # Table target model
 # --------------------------------------------------------------------------
+STYLE_BOUNDARY_RE = re.compile(
+    r"\n[ \t]*\n"                       # paragraph break
+    r"|\\begingroup(?![a-zA-Z])|\\bgroup(?![a-zA-Z])"
+    r"|\\begin\s*\{[^{}]*\}|\\end\s*\{[^{}]*\}"
+    r"|\\(?:par|clearpage|newpage|pagebreak|noindent)(?![a-zA-Z])"
+    r"|\\(?:section|subsection|subsubsection|paragraph|chapter)\*?\s*"
+    r"(?:\[[^\]]*\])?\s*\{")
+
+
+def leading_style_context(text, masked, start, max_chars=600):
+    """Formatting that applies to a table but is written OUTSIDE its
+    environment, e.g.
+
+        \\begingroup\\footnotesize\\setlength{\\tabcolsep}{3pt}
+        \\begin{longtable}{...}
+
+    Without this the snippet would typeset the table at the wrong size, which
+    changes column widths and (because the image then exceeds \\linewidth)
+    silently shrinks the table in the output. Only a run consisting purely of
+    commands is accepted -- if there is any prose in the gap, we take nothing.
+    """
+    window_start = max(0, start - max_chars)
+    boundary = window_start
+    for m in STYLE_BOUNDARY_RE.finditer(masked, window_start, start):
+        boundary = m.end()
+    prefix_masked = masked[boundary:start]
+    # Drop comment text: it is inert to LaTeX, but carrying it into the
+    # snippet would make its words look like table content to the
+    # completeness check.
+    prefix = "".join(
+        c for c, mc in zip(text[boundary:start], prefix_masked)
+        if mc != " " or c.isspace())
+    if "\\" not in prefix:          # nothing but comments/whitespace
+        return ""
+    # accept only if nothing but commands, their arguments and whitespace
+    residue = re.sub(r"\\[a-zA-Z@]+\*?", " ", prefix_masked)
+    residue = re.sub(r"\{[^{}]*\}|\[[^\]]*\]", " ", residue)
+    residue = re.sub(r"\{[^{}]*\}", " ", residue)
+    if re.search(r"[A-Za-z0-9]", residue):
+        return ""
+    # never carry an unbalanced group across -- it would break the snippet
+    depth = 0
+    for m in re.finditer(r"\\.|\{|\}", prefix_masked, re.S):
+        if m.group() == "{":
+            depth += 1
+        elif m.group() == "}":
+            depth -= 1
+            if depth < 0:
+                return ""
+    return prefix if depth == 0 else ""
+
+
 @dataclass
 class Target:
     index: int                 # 1-based, document order
@@ -358,9 +426,9 @@ class Target:
     method: str = ""           # 'preview' | 'pagecrop'
     ok: bool = False
     note: str = ""
-    caps_before: int = 0       # table numbers consumed earlier (this chapter)
-    chapters_before: int = 0   # \chapter commands before this table
-    doc_has_chapters: bool = False
+    style_prefix: str = ""     # formatting applied from outside the environment
+    caps_before: int = 0       # table numbers consumed earlier (this section)
+    counter_seed: dict = field(default_factory=dict)  # counter -> value
 
 
 def line_of(text, off):
@@ -478,6 +546,15 @@ def scan_targets(text, masked):
         targets.append(("bare", s))
     targets.sort(key=lambda t: t[1].start)
 
+    # Table-like environments we knowingly cannot handle. Report them by name
+    # and line so the user is never left assuming a table was flattened when
+    # it was quietly left as live text.
+    unsupported = []
+    for m in re.finditer(r"\\begin\s*\{([A-Za-z*]+)\}", masked[body_off:]):
+        env = m.group(1)
+        if env in UNSUPPORTED_ENVS:
+            unsupported.append((env, line_of(text, body_off + m.start())))
+
     out, notes = [], []
     idx = 0
     for kind, s in targets:
@@ -531,42 +608,134 @@ def scan_targets(text, masked):
                 t.caption_pos = longtable_caption_position(env_masked, caps[0]["offset"])
         else:  # bare
             t.render_content = text[s.start:s.end]
+        t.style_prefix = leading_style_context(text, masked, s.start)
+        if t.style_prefix:
+            t.render_content = t.style_prefix + "\n" + t.render_content
         out.append(t)
-    # table-number bookkeeping: chapter-numbered classes reset the table
-    # counter at each (non-starred) \chapter; a longtable consumes a number
-    # even without a caption
-    chap_marks = [m.start() for m in
-                  re.finditer(r"\\chapter(?!\*)\s*[\[{]", masked)]
-    has_chapters = bool(chap_marks)
-    seg, caps = -1, 0
+    # ---- table-number bookkeeping -----------------------------------------
+    # The table counter is reset by a parent counter: \chapter in book/report,
+    # or whatever \counterwithin{table}{...} names (common in reports that
+    # number tables 2.1, 2.2, ...). Seeding the snippet with the right parent
+    # value is what makes \thetable inside a continued header correct.
+    parent = None
+    cw = re.search(r"\\(?:counterwithin|numberwithin)\*?\s*\{table\}\s*\{([a-zA-Z]+)\}",
+                   masked)
+    if cw:
+        parent = cw.group(1)
+    elif re.search(r"\\chapter(?!\*)\s*[\[{]", masked):
+        parent = "chapter"
+
+    # positions of each counter-stepping command, outermost first
+    chain = []          # [(counter_name, [positions])]
+    if parent == "chapter":
+        chain = [("chapter", None)]
+    elif parent:
+        if re.search(r"\\chapter(?!\*)\s*[\[{]", masked):
+            chain = [("chapter", None), (parent, None)]
+        else:
+            chain = [(parent, None)]
+    chain = [(name, [m.start() for m in
+                     re.finditer(r"\\" + name + r"(?!\*)(?![a-zA-Z])\s*(?:\[|\{)", masked)])
+             for name, _ in chain]
+
+    seg, caps = None, 0
     for t in out:
-        t.doc_has_chapters = has_chapters
-        t.chapters_before = sum(1 for c in chap_marks if c < t.span.start)
-        if has_chapters and t.chapters_before != seg:
-            seg, caps = t.chapters_before, 0
+        seed = {}
+        for name, marks in chain:
+            seed[name] = sum(1 for c in marks if c < t.span.start)
+        # the table counter restarts whenever any parent in the chain advances
+        key = tuple(seed.get(name, 0) for name, _ in chain)
+        if chain and key != seg:
+            seg, caps = key, 0
+        t.counter_seed = seed
         t.caps_before = caps
         caps += max(t.n_captions, 1) if t.kind == "long" else t.n_captions
-    return out, notes
+    return out, notes, unsupported
 
 
 # --------------------------------------------------------------------------
 # Engines & external tools
 # --------------------------------------------------------------------------
-def detect_engine(text, masked):
+STYLE_LOAD_RE = re.compile(
+    r"\\(?:usepackage|RequirePackage)\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}"
+    r"|\\documentclass\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}")
+
+
+def collect_local_styles(preamble, basedir, depth=4, _seen=None):
+    """Text of every LOCAL .sty/.cls file the preamble pulls in, following
+    nested \\RequirePackage chains. Engine-defining packages such as fontspec
+    are routinely buried inside a house style file rather than named in the
+    document, so detection has to look there too."""
+    if _seen is None:
+        _seen = set()
+    if depth <= 0:
+        return ""
+    chunks = []
+    for m in STYLE_LOAD_RE.finditer(mask_comments(preamble)):
+        names = (m.group(1) or m.group(2) or "")
+        for name in names.split(","):
+            name = name.strip()
+            if not name:
+                continue
+            for ext in (".sty", ".cls", ""):
+                p = (Path(basedir) / (name + ext))
+                if p.is_file() and p.suffix in (".sty", ".cls"):
+                    rp = str(p.resolve())
+                    if rp in _seen:
+                        break
+                    _seen.add(rp)
+                    body, _ = read_text_guess(p)
+                    chunks.append(body)
+                    chunks.append(collect_local_styles(body, p.parent,
+                                                       depth - 1, _seen))
+                    break
+    return "\n".join(chunks)
+
+
+def engine_from_log(main_tex):
+    """How this document was last actually built. A .log or .xdv left by the
+    user's own toolchain is the most reliable signal there is."""
+    log = main_tex.with_suffix(".log")
+    if log.is_file():
+        try:
+            head = log.read_text(errors="replace")[:4000]
+        except OSError:
+            head = ""
+        if re.search(r"This is XeTeX", head):
+            return "xelatex"
+        if re.search(r"This is LuaHBTeX|This is LuaTeX", head):
+            return "lualatex"
+        if re.search(r"This is pdfTeX", head):
+            return "pdflatex"
+    if main_tex.with_suffix(".xdv").is_file():
+        return "xelatex"
+    return None
+
+
+def detect_engine(text, masked, basedir=None, main_tex=None):
     m = re.search(r"^%\s*!\s*TEX\s+(?:TS-)?program\s*=\s*(\S+)", text,
                   re.IGNORECASE | re.MULTILINE)
     if m:
         prog = m.group(1).lower()
         for e in ("xelatex", "lualatex", "pdflatex"):
             if e in prog:
-                return e
+                return e, "magic comment"
+    if main_tex is not None:
+        eng = engine_from_log(main_tex)
+        if eng:
+            return eng, "previous build artifacts"
     doc = re.search(r"\\begin\s*\{document\}", masked)
     pre = masked[:doc.start()] if doc else masked
-    if re.search(r"\\usepackage(\[[^\]]*\])?\s*\{[^{}]*(luacode|luatexja)[^{}]*\}|\\directlua", pre):
-        return "lualatex"
-    if re.search(r"\\usepackage(\[[^\]]*\])?\s*\{[^{}]*(fontspec|polyglossia|unicode-math|mathspec)[^{}]*\}", pre):
-        return "xelatex"
-    return "pdflatex"
+    hay = pre
+    if basedir is not None:
+        hay = pre + "\n" + collect_local_styles(pre, basedir)
+    if re.search(r"\\(?:usepackage|RequirePackage)(\[[^\]]*\])?\s*\{[^{}]*"
+                 r"(luacode|luatexja|luaotfload)[^{}]*\}|\\directlua", hay):
+        return "lualatex", "lua-only packages"
+    if re.search(r"\\(?:usepackage|RequirePackage)(\[[^\]]*\])?\s*\{[^{}]*"
+                 r"(fontspec|polyglossia|unicode-math|mathspec|xeCJK)[^{}]*\}", hay):
+        return "xelatex", "fontspec/unicode packages"
+    return "pdflatex", "default"
 
 
 @dataclass
@@ -690,10 +859,30 @@ def run_latex(engine, texfile, outdir, cwd, passes=1, shell_escape=False, timeou
     pdf = outdir / (Path(texfile).stem + ".pdf")
     ok = rc == 0 and pdf.exists()
     if not ok:
-        lines = log.splitlines()
-        err_at = next((i for i, l in enumerate(lines) if l.startswith("!") or ":! " in l or re.match(r".*:\d+: ", l)), max(0, len(lines) - 25))
-        log = "\n".join(lines[max(0, err_at - 2): err_at + 18])
+        log = latex_error_excerpt(log)
     return ok, log, pdf
+
+
+def latex_error_excerpt(log, context=18):
+    """The part of a TeX log a human actually needs. TeX reports errors as a
+    line starting with '!' (or 'file:line: message' with -file-line-error);
+    everything before that is noise, and the tail of the log is usually the
+    unrelated file list."""
+    lines = log.splitlines()
+    hits = [i for i, l in enumerate(lines)
+            if l.startswith("! ") or l.startswith("!pdfTeX")
+            or re.match(r"^[^\s:]+\.(?:tex|sty|cls|def|ltx):\d+:\s", l)]
+    if hits:
+        start = max(0, hits[0] - 2)
+        chunk = lines[start:hits[0] + context]
+    else:
+        # no recognizable error: show the tail, minus the file-list noise
+        useful = [l for l in lines if l.strip() and not l.startswith("(")]
+        chunk = useful[-context:] if useful else lines[-context:]
+    out = "\n".join(chunk).strip()
+    if len(hits) > 1:
+        out += f"\n... and {len(hits) - 1} more LaTeX error(s) in the log"
+    return out
 
 
 def pdf_page_count(pdf, tools):
@@ -789,17 +978,20 @@ def _aux_hook(aux_name):
             if aux_name else "")
 
 
-def _counter_lines(table_counter, chapter_counter):
+def _counter_lines(table_counter, parent_seed):
+    """Restore the counters \\thetable depends on, so a number printed inside
+    the table (a continued header, say) matches the real document."""
     lines = ""
-    if chapter_counter is not None:
-        # chapter-numbered classes: restore \thechapter so \thetable is right
-        lines += f"\\setcounter{{chapter}}{{{chapter_counter}}}%\n"
+    for name, value in (parent_seed or {}).items():
+        # guard: the counter may not exist in this class
+        lines += (f"\\makeatletter\\@ifundefined{{c@{name}}}{{}}"
+                  f"{{\\setcounter{{{name}}}{{{value}}}}}\\makeatother%\n")
     lines += f"\\setcounter{{table}}{{{table_counter}}}%\n"
     return lines
 
 
 def build_preview_snippet(preamble, content, aux_name, table_counter=0,
-                          chapter_counter=None, wrap_captions=False):
+                          parent_seed=None, wrap_captions=False):
     aux = _aux_hook(aux_name)
     if wrap_captions:
         # multi-caption bake: \caption cannot appear outside a float, so
@@ -815,7 +1007,7 @@ def build_preview_snippet(preamble, content, aux_name, table_counter=0,
         f"{aux}"
         f"\\pagestyle{{empty}}\n"
         f"\\begin{{document}}\n"
-        f"{_counter_lines(table_counter, chapter_counter)}"
+        f"{_counter_lines(table_counter, parent_seed)}"
         f"\\begin{{preview}}%\n"
         f"{content}%\n"
         f"\\end{{preview}}\n"
@@ -824,7 +1016,7 @@ def build_preview_snippet(preamble, content, aux_name, table_counter=0,
 
 
 def build_page_snippet(preamble, content, aux_name, landscape=False,
-                       table_counter=0, chapter_counter=None, wrap_captions=False):
+                       table_counter=0, parent_seed=None, wrap_captions=False):
     aux = _aux_hook(aux_name)
     body = content
     if wrap_captions:
@@ -839,7 +1031,7 @@ def build_page_snippet(preamble, content, aux_name, landscape=False,
         f"\\pagestyle{{empty}}\n"
         f"\\begin{{document}}\n"
         f"\\thispagestyle{{empty}}\n"
-        f"{_counter_lines(table_counter, chapter_counter)}"
+        f"{_counter_lines(table_counter, parent_seed)}"
         f"{body}\n"
         f"\\end{{document}}\n"
     )
@@ -850,17 +1042,41 @@ INJECT_BLOCK = r"""
 \makeatletter
 \@ifpackageloaded{{graphicx}}{{}}{{\usepackage{{graphicx}}}}
 \@ifundefined{{captionof}}{{\usepackage{{capt-of}}}}{{}}
+% multi-page tables are re-emitted as a longtable of page images
+\@ifpackageloaded{{longtable}}{{}}{{\usepackage{{longtable}}}}
 \@ifundefined{{tablepngs@nat}}{{%
   \newlength{{\tablepngs@nat}}\newlength{{\tablepngs@cap}}}}{{}}
 % \tablepngsincl[<max width>]{{<image>}}{{<natural width>}}: include at natural
 % size, never wider than <max width> (default \linewidth) nor taller than
-% {maxh} of \textheight.
+% {maxh} of \textheight. Used for ordinary table floats.
 \providecommand{{\tablepngsincl}}[3][\linewidth]{{%
   \setlength{{\tablepngs@nat}}{{#3}}%
   \setlength{{\tablepngs@cap}}{{#1}}%
   \ifdim\tablepngs@nat>\tablepngs@cap\setlength{{\tablepngs@nat}}{{\tablepngs@cap}}\fi
   \includegraphics[width=\tablepngs@nat,height={maxh}\textheight,keepaspectratio]{{#2}}%
 }}
+% Page chunks of a multi-page table were typeset to fill the text block, so
+% they are included at up to {pageh} of \textheight -- shrinking them further
+% would render the table smaller than it is in the original document.
+\providecommand{{\tablepngspage}}[3][\linewidth]{{%
+  \setlength{{\tablepngs@nat}}{{#3}}%
+  \setlength{{\tablepngs@cap}}{{#1}}%
+  \ifdim\tablepngs@nat>\tablepngs@cap\setlength{{\tablepngs@nat}}{{\tablepngs@cap}}\fi
+  \includegraphics[width=\tablepngs@nat,height={pageh}\textheight,keepaspectratio]{{#2}}%
+}}
+% Same, but leaving room for a caption sharing the page.
+\providecommand{{\tablepngspagecap}}[3][\linewidth]{{%
+  \setlength{{\tablepngs@nat}}{{#3}}%
+  \setlength{{\tablepngs@cap}}{{#1}}%
+  \ifdim\tablepngs@nat>\tablepngs@cap\setlength{{\tablepngs@nat}}{{\tablepngs@cap}}\fi
+  \includegraphics[width=\tablepngs@nat,height={caph}\textheight,keepaspectratio]{{#2}}%
+}}
+% Glue used around a flattened table chunk.
+\providecommand{{\tablepngsgap}}{{\par\addvspace{{\medskipamount}}}}
+% Forbids a page break at this point, so a caption can never be separated
+% from the image it belongs to. A minipage would do it too, but would also
+% trap any \footnote in the caption inside the box.
+\providecommand{{\tablepngsnobreak}}{{\nopagebreak[4]\par\nopagebreak[4]}}
 \makeatother
 %% ---- end tablepngs -------------------------------------------------------
 """
@@ -899,25 +1115,76 @@ def float_replacement(t, img_relpaths, widths_pt):
     return "\n".join(parts)
 
 
+def defuse_footnotes(caption_text):
+    """Split \\footnote{...} out of a caption.
+
+    Inside a float, \\caption defers its argument and \\footnote survives. A
+    longtable caption has to be re-emitted with \\captionof, whose argument is
+    rescanned by the caption package -- and a \\footnote there fails with
+    "Argument of \\caption@ydblarg has an extra }". Replacing each footnote
+    with \\footnotemark and emitting \\footnotetext afterwards produces the
+    same printed result without the fragile argument."""
+    masked = mask_comments(caption_text)
+    spans, notes = [], []
+    for m in re.finditer(r"\\footnote(?![a-zA-Z])\s*", masked):
+        i = m.end()
+        if i < len(masked) and masked[i] == "[":
+            try:
+                i = match_bracket(masked, i)
+            except TPError:
+                continue
+        if i >= len(masked) or masked[i] != "{":
+            continue
+        try:
+            j = match_brace(masked, i)
+        except TPError:
+            continue
+        spans.append((m.start(), j))
+        notes.append(caption_text[i + 1:j - 1])
+    if not spans:
+        return caption_text, []
+    out, pos = [], 0
+    for s, e in spans:
+        out.append(caption_text[pos:s])
+        out.append("\\footnotemark{}")
+        pos = e
+    out.append(caption_text[pos:])
+    return "".join(out), notes
+
+
 def long_replacement(t, img_relpaths, widths_pt):
+    """Re-emit a multi-page table as a one-column longtable of images.
+
+    Using a real longtable rather than \\captionof matters for two reasons.
+    First, the caption is reproduced VERBATIM inside the same kind of
+    environment it came from, so constructs the document already proved it can
+    typeset -- a \\footnote or a nested \\label in the caption, both of which
+    break \\captionof -- keep working. Second, longtable rows break across
+    pages natively, so the page chunks flow one after another without floating
+    away from their anchor.
+    """
+    last = len(img_relpaths) - 1
+    rows = []
+    caption_row = None
     if t.caption_raw:
-        m = re.match(r"\\caption(\*?)((?:\[[^\]]*\])?)\s*\{", t.caption_raw)
-        star = m.group(1) if m else ""
-        capof = f"\\captionof{star}{{table}}{{{t.caption_text}}}"
-        caption_block = capof + "".join(t.labels_raw)
-    else:
-        # a longtable consumes a table number even without a caption;
-        # re-step invisibly so later table numbers stay aligned
-        caption_block = "\\refstepcounter{table}" + "".join(t.labels_raw) + "%"
-    blocks = []
+        caption_row = t.caption_raw + "".join(t.labels_raw)
     for i, (p, w) in enumerate(zip(img_relpaths, widths_pt)):
-        inner = [f"\\tablepngsincl{{{p}}}{{{w:.2f}pt}}"]
-        if caption_block and i == 0 and t.caption_pos == "above":
-            inner.insert(0, caption_block)
-        if caption_block and i == len(img_relpaths) - 1 and t.caption_pos == "below":
-            inner.append(caption_block)
-        blocks.append("\\begin{center}\n" + "\n".join(inner) + "\n\\end{center}")
-    return "\n".join(blocks)
+        shares = (caption_row is not None
+                  and ((i == 0 and t.caption_pos == "above")
+                       or (i == last and t.caption_pos == "below")))
+        macro = "tablepngspagecap" if shares else "tablepngspage"
+        rows.append(f"\\{macro}{{{p}}}{{{w:.2f}pt}}")
+    body = []
+    if caption_row is not None and t.caption_pos == "above":
+        body.append(caption_row + "\\\\*")
+    body += [r + "\\\\" for r in rows]
+    if caption_row is not None and t.caption_pos == "below":
+        body.append(caption_row + "\\\\")
+    if caption_row is None and t.labels_raw:
+        # keep \ref targets working even with no caption
+        body.append("".join(t.labels_raw) + "%")
+    return ("\\begin{longtable}{@{}c@{}}\n" + "\n".join(body)
+            + "\n\\end{longtable}")
 
 
 def bare_replacement(t, img_relpaths, widths_pt):
@@ -997,10 +1264,23 @@ def pick_probes(content, rest_of_doc_norm, k=6):
 
 
 def caption_probe(caption_text):
-    """First ~20 normalized chars of the caption; '' if too short to be
-    meaningful (then the check is skipped)."""
-    probe = norm_alnum(strip_latex(caption_text))[:20]
-    return probe if len(probe) >= 8 else ""
+    """A literal run of caption text to look for in the output.
+
+    The probe must avoid macros: a caption like "How the \\dcUniverseN{}
+    operating sites" prints an expanded number that the source does not
+    contain, so a probe spanning the macro would never match. Taking the
+    longest macro-free stretch keeps the check honest. Returns '' when there
+    is no stretch long enough to be meaningful, in which case the caller
+    skips the check rather than guessing."""
+    text = re.sub(r"\\\\|\\[ ,;:!]", " ", caption_text)
+    segments = re.split(r"\\[a-zA-Z@]+\*?(?:\[[^\]]*\])?(?:\{[^{}]*\})?|[{}$&~^_]",
+                        text)
+    best = ""
+    for seg in segments:
+        n = norm_alnum(seg)
+        if len(n) > len(best):
+            best = n
+    return best[:24] if len(best) >= 10 else ""
 
 
 def verify(targets, final_pdf, tools):
@@ -1084,7 +1364,22 @@ def source_literal_tokens(content, kind="float"):
     image's text layer, or the render dropped content."""
     if kind == "long":
         content = longtable_rows_region(content)
+    # comments never render, so their words must not count as table content
+    content = "".join(c if mc != " " or c.isspace() else " "
+                      for c, mc in zip(content, mask_comments(content)))
     content = strip_env_headers(content)
+    # declarations whose arguments are values, not text
+    content = re.sub(
+        r"\\(?:renewcommand|newcommand|providecommand|setlength|addtolength"
+        r"|definecolor|arrayrulewidth|setcounter|settowidth)\s*\*?"
+        r"(?:\{[^{}]*\}|\\[a-zA-Z@]+)(?:\s*\[[^\]]*\])?\s*(?:\{[^{}]*\})?"
+        r"(?:\s*\{[^{}]*\})?", " ", content)
+    # rules and spans: the column/range arguments are not content
+    content = re.sub(r"\\(?:cmidrule|cline)\s*(?:\([^)]*\))?\s*\{[^{}]*\}",
+                     " ", content)
+    content = re.sub(r"\\multicolumn\s*\{[^{}]*\}\s*\{[^{}]*\}", " ", content)
+    content = re.sub(r"\\multirow\s*\*?(?:\[[^\]]*\])?\s*\{[^{}]*\}"
+                     r"(?:\s*\[[^\]]*\])?\s*\{[^{}]*\}", " ", content)
     # arguments of these commands are keys/parameters, not typeset text
     content = re.sub(r"\\rowcolors\*?\s*\{[^{}]*\}\s*\{[^{}]*\}\s*\{[^{}]*\}",
                      " ", content)
@@ -1108,20 +1403,17 @@ def source_literal_tokens(content, kind="float"):
     return out
 
 
-def pages_containing(pdf, probes, tools, max_pages=40):
-    """Page numbers of `pdf` whose text layer contains any of `probes`."""
+def pages_containing(pdf, probes, tools):
+    """Page numbers of `pdf` whose text layer contains any of `probes`.
+    One extraction for the whole file: pdftotext separates pages with a form
+    feed, so per-page scanning costs nothing extra and there is no page cap."""
     if not probes:
         return []
-    hits = []
-    n = pdf_page_count(pdf, tools) or 0
-    for p in range(1, min(n, max_pages) + 1):
-        txt = extract_pdf_text(pdf, tools, first=p, last=p)
-        if txt is None:
-            return []
-        hay = norm_alnum(txt)
-        if any(pr in hay for pr in probes):
-            hits.append(p)
-    return hits
+    txt = extract_pdf_text(pdf, tools)
+    if txt is None:
+        return []
+    return [i for i, page in enumerate(txt.split("\f"), 1)
+            if any(pr in norm_alnum(page) for pr in probes)]
 
 
 def build_reference_doc(text, masked, targets, preamble_end, aux_name=None):
@@ -1388,9 +1680,11 @@ def process(args):
     masked = mask_comments(text)
 
     engine = args.engine
-    if engine == "auto":
-        engine = detect_engine(text, masked)
-        info(f"engine auto-detected: {engine}")
+    auto_engine = engine == "auto"
+    if auto_engine:
+        engine, why = detect_engine(text, masked, basedir=maindir,
+                                    main_tex=main_tex)
+        info(f"engine auto-detected: {engine} (from {why})")
     tools = discover_tools(engine)
     if not tools.engine:
         die(f"LaTeX engine '{engine}' not found on PATH — run with --check for install help")
@@ -1399,9 +1693,13 @@ def process(args):
     info(f"rasterizer: {tools.raster} @ {args.dpi} dpi")
 
     # ---- scan --------------------------------------------------------------
-    targets, scan_notes = scan_targets(text, masked)
+    targets, scan_notes, unsupported = scan_targets(text, masked)
     for note in scan_notes:
         info(note)
+    for env, line in unsupported:
+        warn(f"line {line}: \\begin{{{env}}} is {UNSUPPORTED_ENVS[env]}. "
+             f"tablepngs will NOT flatten it — that table stays as live text "
+             f"and Word may still reflow it.")
     if args.no_bare:
         targets = [t for t in targets if t.kind != "bare"]
     if args.only:
@@ -1420,7 +1718,9 @@ def process(args):
     info(f"found {len(targets)} table target(s): {n_float} float(s), "
          f"{n_long} longtable(s), {n_bare} bare tabular(s)")
     for t in targets:
-        cap = (re.sub(r"\s+", " ", strip_latex(t.caption_text)).strip()[:48]
+        preview = re.sub(r"\\(?:label|cite[a-zA-Z]*|ref|nonumber)\s*"
+                         r"(?:\[[^\]]*\])?\{[^{}]*\}", " ", t.caption_text)
+        cap = (re.sub(r"\s+", " ", strip_latex(preview)).strip()[:48]
                or "(no caption)")
         extra = " [landscape]" if t.in_landscape else ""
         print(f"    t{t.index:02d}  {t.env:<14} line {t.line:>5}  {cap}{extra}")
@@ -1447,6 +1747,33 @@ def process(args):
     ok, log, orig_pdf = run_latex(engine, main_tex, build / "orig", maindir,
                                   passes=2, shell_escape=args.shell_escape,
                                   timeout=args.timeout)
+    # Retry other engines only when the failure actually looks like an engine
+    # mismatch. A missing graphics file or an undefined macro fails identically
+    # under every engine, and retrying just buries the real error.
+    ENGINE_MISMATCH = (
+        r"cannot-use-pdftex|cannot be used with|only be used with|"
+        r"requires (?:XeTeX|LuaTeX|xelatex|lualatex)|"
+        r"Unicode character|invalid in PDF mode|\\XeTeXversion|"
+        r"fontspec|polyglossia|unicode-math|luatex(?:base)?\.sty")
+    if not ok and auto_engine and re.search(ENGINE_MISMATCH, log, re.I):
+        hint = " (the log points at an engine/font mismatch)"
+        for alt in [e for e in ("xelatex", "lualatex", "pdflatex") if e != engine]:
+            if not which(alt):
+                continue
+            info(f"{engine} could not build this document{hint}; "
+                 f"retrying with {alt}...")
+            ok2, log2, pdf2 = run_latex(alt, main_tex, build / "orig", maindir,
+                                        passes=2, shell_escape=args.shell_escape,
+                                        timeout=args.timeout)
+            if ok2:
+                info(f"{alt} succeeded — using {alt} for this run "
+                     f"(pass --engine {alt} to skip this retry next time)")
+                engine, ok, log, orig_pdf = alt, ok2, log2, pdf2
+                tools = discover_tools(engine)
+                break
+        if not ok:
+            warn("no available LaTeX engine could build this document; "
+                 "reporting the first engine's error below")
     if not ok:
         if not args.keep_build:
             shutil.rmtree(build, ignore_errors=True)
@@ -1454,7 +1781,12 @@ def process(args):
                 imgdir.rmdir()  # remove only if we just created it empty
             except OSError:
                 pass
-        die(f"the ORIGINAL document failed to compile with {engine} — fix that first.\n"
+        die(f"the ORIGINAL document failed to compile with {engine}, so there "
+            f"is nothing tablepngs can safely flatten.\n"
+            f"  * If the document builds for you with a different engine, say so: "
+            f"--engine xelatex|lualatex|pdflatex\n"
+            f"  * If it needs shell escape (minted, gnuplot): --shell-escape\n"
+            f"  * Otherwise fix the LaTeX error below and re-run.\n"
             f"--- log excerpt ---\n{log}")
     orig_pages = pdf_page_count(orig_pdf, tools)
 
@@ -1488,15 +1820,15 @@ def process(args):
             ctr = t.caps_before
         else:
             ctr = t.caps_before + (1 if (t.n_captions == 1 and t.caption_pos == "above") else 0)
-        chap = t.chapters_before if t.doc_has_chapters else None
+        seed = t.counter_seed
         if t.kind == "long":
             snippet = build_page_snippet(preamble, t.render_content, aux_name,
                                          landscape=t.in_landscape, table_counter=ctr,
-                                         chapter_counter=chap)
+                                         parent_seed=seed)
             passes, t.method = 3, "pagecrop"
         else:
             snippet = build_preview_snippet(preamble, t.render_content, aux_name,
-                                            table_counter=ctr, chapter_counter=chap,
+                                            table_counter=ctr, parent_seed=seed,
                                             wrap_captions=t.multi_caption)
             passes, t.method = 2, "preview"
         snip_tex = snipdir / f"{stem_t}.tex"
@@ -1508,7 +1840,7 @@ def process(args):
             # fallback: some content (e.g. stray \\pagebreak) rejects preview
             snippet = build_page_snippet(preamble, t.render_content, aux_name,
                                          landscape=t.in_landscape, table_counter=ctr,
-                                         chapter_counter=chap, wrap_captions=t.multi_caption)
+                                         parent_seed=seed, wrap_captions=t.multi_caption)
             snip_tex.write_text(snippet, encoding=encoding)
             ok, log, pdf = run_latex(engine, snip_tex, snipdir, maindir,
                                      passes=2, shell_escape=args.shell_escape,
@@ -1559,7 +1891,12 @@ def process(args):
         else:
             repl = bare_replacement(t, t.images, t.widths_pt)
         newtext = newtext[:t.span.start] + repl + newtext[t.span.end:]
-    inject = INJECT_BLOCK.format(version=__version__, maxh=args.max_height)
+    try:
+        caph = f"{max(0.50, float(args.page_height) - 0.10):.2f}"
+    except ValueError:
+        die(f"--page-height must be a number, got {args.page_height!r}")
+    inject = INJECT_BLOCK.format(version=__version__, maxh=args.max_height,
+                                 pageh=args.page_height, caph=caph)
     m = re.search(r"\\begin\s*\{document\}", mask_comments(newtext))
     newtext = newtext[:m.start()] + inject + newtext[m.start():]
     header = (f"% Generated by tablepngs v{__version__} from {main_tex.name} — "
@@ -1579,14 +1916,31 @@ def process(args):
                                    passes=2, shell_escape=args.shell_escape,
                                    timeout=args.timeout)
     if not ok:
-        die(f"flattened document failed to compile — this is a tablepngs bug "
-            f"or a document edge case; please report it.\n--- log ---\n{log}", 1)
+        die(f"the flattened document ({out_tex.name}) failed to compile, so no "
+            f"PDF was produced.\n"
+            f"  The original document is untouched and still fine.\n"
+            f"  The generated .tex was kept so you can inspect it, and the "
+            f"PNGs in {imgdir_name}/ are usable on their own.\n"
+            f"  Most likely one table's replacement does not fit where the "
+            f"table used to be. Try re-running with --skip <n> for the table "
+            f"named in the error, or --page-height 0.9 if the error mentions "
+            f"an overfull \\vbox.\n"
+            f"  If the error looks like a tablepngs defect, please report it "
+            f"with the excerpt below.\n--- log ---\n{log}", 1)
     deliver_pdf = maindir / f"{out_tex.stem}.pdf"
     shutil.copy(final_pdf, deliver_pdf)
     final_pages = pdf_page_count(deliver_pdf, tools)
     pg = (f"{orig_pages} -> {final_pages} pages" if orig_pages and final_pages
           else "")
     info(f"wrote {deliver_pdf.name} {pg}")
+    if orig_pages and final_pages and final_pages > orig_pages * 1.10:
+        grew = final_pages - orig_pages
+        warn(f"the flattened document grew by {grew} page(s) "
+             f"({orig_pages} -> {final_pages}). A rasterized table cannot be "
+             f"split across a page the way a live longtable can, so a large "
+             f"table that used to start mid-page now moves to the next page. "
+             f"If that matters, --page-height 0.99 packs them tighter, or "
+             f"--skip <n> leaves a particular table as live text.")
 
     # ---- verify ------------------------------------------------------------
     rc = 0
@@ -1629,9 +1983,20 @@ def process(args):
                     content = "content n/a"
                     content_bad = False
                 else:
-                    content_bad = bool(missing)
-                    content = (f"content {n_src - len(missing)}/{n_src} tokens"
-                               if content_bad else f"content {n_src}/{n_src} ok")
+                    # A word hyphenated across lines inside a narrow cell can
+                    # be unrecoverable from the text layer, because extraction
+                    # interleaves neighbouring columns between the fragments.
+                    # Tolerate a few such tokens; a genuinely dropped row costs
+                    # far more than that and still fails.
+                    tol = max(3, int(0.03 * n_src))
+                    content_bad = len(missing) > tol
+                    if not missing:
+                        content = f"content {n_src}/{n_src} ok"
+                    elif content_bad:
+                        content = f"content {n_src - len(missing)}/{n_src} tokens"
+                    else:
+                        content = (f"content {n_src - len(missing)}/{n_src} "
+                                   f"(~hyphenation)")
                 pixel_valid = ref_kind == "preview"
                 pixel_bad = (pixel_valid and score is not None
                              and score > args.compare_threshold)
@@ -1654,6 +2019,10 @@ def process(args):
                              f"{missing[:8]}{' ...' if len(missing) > 8 else ''}")
                 else:
                     print(line)
+                    if missing:
+                        print(f"         not found in the text layer (within "
+                              f"tolerance, check the sheet if unsure): "
+                              f"{missing[:6]}")
             info(f"visual check: {len(cmp_results)} side-by-side sheet(s) in "
                  f"{imgdir.name}/_compare/ (blue = as typeset in your document, "
                  f"orange = the flattened PNG) — open them to confirm nothing "
@@ -1701,7 +2070,13 @@ def main(argv=None):
     ap.add_argument("--imgdir", default=None,
                     help="image folder name (default <stem>_tablepngs)")
     ap.add_argument("--max-height", default="0.85", metavar="FRAC",
-                    help="cap image height at FRAC of \\textheight (default 0.85)")
+                    help="cap table-float image height at FRAC of \\textheight "
+                         "(default 0.85)")
+    ap.add_argument("--page-height", default="0.96", metavar="FRAC",
+                    help="cap multi-page-table chunk height at FRAC of "
+                         "\\textheight (default 0.96; these chunks were "
+                         "typeset to fill the page, so shrinking them makes "
+                         "the table smaller than the original)")
     ap.add_argument("--only", default=None, metavar="N,M",
                     help="process only these table indices (see --list)")
     ap.add_argument("--skip", default=None, metavar="N,M",

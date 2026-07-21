@@ -1,0 +1,15 @@
+% A "house style" package, the way real report templates are built: the
+% document loads this, and this loads everything else. Engine detection and
+% preamble reuse both have to see through it.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{housestyle}[2026/07/21 tablepngs test house style]
+\RequirePackage{booktabs}
+\RequirePackage{longtable}
+\RequirePackage{array}
+\RequirePackage{caption}
+\RequirePackage[hidelinks]{hyperref}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcommand{\tabfigures}{\relax}
+\newcommand{\siteCount}{47}
+\newcommand{\DataReport}{\emph{Data Report}}

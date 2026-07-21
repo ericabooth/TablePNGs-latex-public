@@ -20,17 +20,38 @@ diagnose and re-run the script instead.
 
 ## Locating the script
 
-1. If this repo is TablePNGs-latex-public, it is `./tablepngs.py`.
-2. Otherwise check `~/.claude/skills/tablepngs/tablepngs.py` (bundled copy,
-   may exist if the user copied the skill).
-3. Otherwise search: `ls ~/Documents/GitHub/TablePNGs-latex-public/tablepngs.py`.
-4. If not found anywhere, offer to clone/download it, or ask the user where
-   it lives.
+Run this and use the first path it prints:
 
-Set `SCRIPT` to the found path; run everything with `python3` (`py` on
-Windows).
+```bash
+for p in ./tablepngs.py ~/.claude/skills/tablepngs/tablepngs.py \
+         ~/Documents/GitHub/TablePNGs-latex-public/tablepngs.py; do
+  [ -f "$p" ] && echo "$p" && break
+done
+```
+
+If none exists, search wider (`find ~ -name tablepngs.py -maxdepth 6 2>/dev/null`),
+and if it is genuinely absent, tell the user and stop — do not hand-roll the
+conversion. Refer to the found path as `$SCRIPT` below. Use `python3`
+(`py` on Windows).
+
+## Where to run it, and paths
+
+Run the script from the directory containing the document, passing the bare
+filename (`cd /path/to/doc && python3 $SCRIPT main.tex`). The document's own
+relative paths — `\usepackage{../shared/style}`, `\includegraphics{../figures/x}`
+— are resolved relative to the document, so a document that builds in place
+will build here too. Outputs are written next to the document.
+
+If you copy a document elsewhere to experiment, copy the whole tree its
+relative paths reach (style files AND figure directories), or the baseline
+compile will fail on a missing file that has nothing to do with tablepngs.
 
 ## Standard workflow
+
+Budget the time: a short paper takes seconds, but a 100-page report with
+20-odd tables compiles the document many times and can run for several
+minutes. Give the command a generous timeout (10 minutes or more) and do not
+kill it early — a half-finished run leaves confusing artifacts.
 
 1. **Doctor first** (fast, catches most problems):
    `python3 $SCRIPT --check`
@@ -47,10 +68,12 @@ Windows).
    `python3 $SCRIPT path/to/main.tex --compare`
    Always pass `--compare` unless the user asks you not to (or ImageMagick is
    unavailable) — it is what proves the images are not mangled. Add
-   `--engine xelatex|lualatex` only if auto-detection picked wrong (the script
-   auto-detects from `% !TEX program` magic comments and fontspec/polyglossia
-   usage). Add `--shell-escape` only if the original document needs it. Use
-   `--dpi 600` if the user wants print-grade images.
+   You rarely need `--engine`: detection reads a `% !TEX program` comment,
+   then the engine recorded in a previous build's `.log`/`.xdv`, then the
+   preamble and any local `.sty`/`.cls` files it loads, and it retries other
+   engines by itself if the baseline fails on an engine mismatch. Pass it only
+   when you know detection was wrong. Add `--shell-escape` only if the
+   original document needs it, and `--dpi 600` for print-grade images.
 
 4. **Read the result**. Success looks like:
    - exit code 0,
@@ -58,6 +81,11 @@ Windows).
    - `VISUAL PASS — every flattened table matches its in-document rendering`,
    - outputs listed: `<stem>_tablepngs.tex`, `<stem>_tablepngs.pdf`,
      `<stem>_tablepngs/` with the PNGs.
+
+   Note that warnings and per-table MISMATCH lines go to **stderr** while the
+   per-table `[ok]` lines go to stdout, so a bare `... | tail` can hide
+   failures. Capture both (`2>&1`), or you may see a run that looks clean but
+   exited 3.
 
 5. **Look at the comparison sheets yourself** (see below), then tell the user:
    open `<stem>_tablepngs.pdf` in Acrobat and export to Word as usual; the
@@ -107,9 +135,24 @@ to sanity-check that the visual verification is working if you ever doubt it.
 
 ## Interpreting exit codes and failures
 
-- **exit 1, "the ORIGINAL document failed to compile"** — the user's
-  document is broken independent of tablepngs. Show the log excerpt, help
-  fix the document, then re-run.
+- **exit 1, "the ORIGINAL document failed to compile"** — tablepngs never got
+  as far as flattening anything. Read the log excerpt before concluding the
+  document is broken:
+  - *File ... not found* — you are running from the wrong directory, or the
+    tree was copied without the figure/style directories it references.
+  - *fontspec / Unicode / engine mismatch* — the script retries other engines
+    automatically for this class of error; if it still fails, pass
+    `--engine xelatex` (or lualatex) explicitly.
+  - anything else — the document genuinely does not build; fix that first,
+    then re-run. Confirm by building it yourself the way the user does.
+- **exit 1, "the flattened document ... failed to compile"** — the flattening
+  itself produced LaTeX that does not build. The original is untouched. The
+  message names the likely fixes; `--skip <n>` for the table named in the
+  error is the reliable fallback. Report which table you had to skip.
+- **"is <X>. tablepngs will NOT flatten it"** — a table in an environment the
+  script does not support. That table stays live text and Word may still
+  reflow it. Tell the user explicitly which table and offer to convert that
+  environment to a supported one (plain `tabular`/`longtable`).
 - **exit 1, a specific table "failed to compile — leaving this table
   as-is"** — re-run with `--keep-build`, then read
   `<stem>_tablepngs/_build/tNN/tNN.log`. Common causes: the table body uses
