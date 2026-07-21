@@ -1,0 +1,162 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{multirow}
+\usepackage{tabularx}
+
+% Custom brand color defined in the preamble (tests preamble reuse)
+\definecolor{tx2036blue}{RGB}{0,84,135}
+\definecolor{stripegray}{RGB}{235,240,245}
+
+% Custom macro used inside table cells (tests preamble reuse)
+\newcommand{\hi}[1]{\textcolor{tx2036blue}{\textbf{#1}}}
+
+\sisetup{
+  group-separator = {,},
+  group-minimum-digits = 4,
+  table-align-text-after = false
+}
+
+\title{Regional Workforce and Housing Pressures in Texas:\\A Styled Tables Demonstration}
+\author{Center for Applied Policy Illustration}
+\date{July 2026}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+Texas continues to add residents faster than nearly every other state, and
+the composition of that growth varies sharply across its metropolitan and
+rural regions. This short report illustrates how regional labor markets,
+housing costs, and public investment interact, using illustrative figures
+assembled for demonstration purposes only. None of the numbers in the
+tables that follow should be cited as official statistics; they exist to
+exercise a table-rendering pipeline.
+
+Section~\ref{sec:labor} reviews labor-market indicators, drawing on the
+striped summary in Table~\ref{tab:labor}. Section~\ref{sec:precision}
+turns to precisely aligned fiscal measures in
+Table~\ref{tab:fiscal}. Section~\ref{sec:grid} presents a cross-tabulated
+grid of program participation in Table~\ref{tab:grid}, and
+Section~\ref{sec:housing} closes with a full-width narrative comparison
+of housing conditions in Table~\ref{tab:housing}.
+
+\section{Labor-market indicators}\label{sec:labor}
+
+Employment growth in the state's mid-sized metros has outpaced the large
+urban triangles in percentage terms, even as absolute job gains remain
+concentrated in the biggest markets. Table~\ref{tab:labor} summarizes
+five illustrative regions with alternating row shading to aid scanning.
+Readers should note that the strongest percentage gains appear in the
+smaller eastern markets, a pattern consistent with lower baseline
+employment counts rather than unusually strong demand.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Illustrative regional employment indicators, striped}
+  \label{tab:labor}
+  \rowcolors{2}{stripegray}{white}
+  \begin{tabular}{lrrr}
+    \toprule
+    Region & Jobs added & Growth (\%) & Openings ratio \\
+    \midrule
+    Nacogdoches Basin   & 8{,}214  & \hi{6.7} & 1.93 \\
+    Palo Duro Corridor  & 3{,}471  & 2.9      & 1.18 \\
+    Balcones Rim        & 21{,}057 & 4.1      & 1.42 \\
+    Caprock Flats       & 1{,}663  & \hi{7.3} & 2.07 \\
+    Neches Delta        & 5{,}829  & 3.6      & 1.31 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Fiscal measures with decimal alignment}\label{sec:precision}
+
+Comparing per-capita spending across regions requires careful decimal
+alignment, particularly when values span more than one order of
+magnitude. Table~\ref{tab:fiscal} uses fixed-format numeric columns so
+that magnitudes can be compared at a glance. The variation in
+transportation outlays is the widest of the three categories shown,
+reflecting the long highway mileage maintained in sparsely populated
+areas.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Illustrative per-capita outlays by category (dollars)}
+  \label{tab:fiscal}
+  \begin{tabular}{l S[table-format=4.2] S[table-format=3.2] S[table-format=4.1]}
+    \toprule
+    Region & {Education} & {Health} & {Transport} \\
+    \midrule
+    Nacogdoches Basin  & 4187.53 & 612.44 & 1093.7 \\
+    Palo Duro Corridor & 3958.21 &  587.09 & 2841.6 \\
+    Balcones Rim       & 4402.86 & 634.71 &  876.2 \\
+    Caprock Flats      & 3719.44 & 559.83 & 3164.9 \\
+    Neches Delta       & 4066.02 & 601.57 & 1428.3 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Program participation grid}\label{sec:grid}
+
+Participation in workforce training programs differs by both region and
+age band. Table~\ref{tab:grid} cross-tabulates enrollment counts,
+grouping the two younger cohorts and the two older cohorts under spanning
+headers, with region groups collapsed into two multirow blocks. The
+younger cohorts dominate enrollment in every region, though the margin
+narrows in the rural block.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Illustrative training enrollment by region group and age band}
+  \label{tab:grid}
+  \begin{tabular}{llrrrr}
+    \toprule
+    & & \multicolumn{2}{c}{Younger cohorts} & \multicolumn{2}{c}{Older cohorts} \\
+    \cmidrule(lr){3-4} \cmidrule(lr){5-6}
+    Group & Region & {18--24} & {25--34} & {35--49} & {50--64} \\
+    \midrule
+    \multirow{2}{*}{Metro} & Balcones Rim  & 4{,}912 & 6{,}358 & 3{,}147 & 1{,}026 \\
+                           & Neches Delta  & 1{,}744 & 2{,}209 & 1{,}183 &   417 \\
+    \midrule
+    \multirow{2}{*}{Rural} & Caprock Flats &   386   &   541   &   472   &   298 \\
+                           & Palo Duro     &   659   &   803   &   744   &   511 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Housing conditions}\label{sec:housing}
+
+Housing affordability now ranks among the top concerns reported by
+employers recruiting to the state's fast-growing regions. Because the
+qualitative assessments are longer than a numeric cell can comfortably
+hold, Table~\ref{tab:housing} spreads flexible-width columns across the
+full text width. The pattern is familiar: where job growth is fastest,
+permitting has not kept pace, and median rents have climbed accordingly.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Illustrative housing conditions, full-width narrative comparison}
+  \label{tab:housing}
+  \begin{tabularx}{\textwidth}{lXXr}
+    \toprule
+    Region & Supply assessment & Policy response & Median rent \\
+    \midrule
+    Nacogdoches Basin & Permitting lags demand by roughly eleven months; infill parcels scarce near the mill district & Fee waivers piloted for accessory dwellings in \hi{2024} & \$1{,}287 \\
+    Balcones Rim & Multifamily pipeline robust downtown but thin in the western foothill tracts & Density bonus adopted along the Ridgeline transit spine & \$1{,}942 \\
+    Caprock Flats & Aging stock dominates; vacancy concentrated in pre-1970 units needing rehabilitation & Rehab grant fund capitalized at \$4.6 million & \$743 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Conclusion}
+
+The four tables above (Tables~\ref{tab:labor}--\ref{tab:housing})
+illustrate a common analytic arc: scan-friendly summaries, precisely
+aligned fiscal detail, cross-tabulated program data, and narrative
+comparisons. A production report would pair each with sourcing notes and
+uncertainty ranges; here the figures are intentionally synthetic.
+
+\end{document}

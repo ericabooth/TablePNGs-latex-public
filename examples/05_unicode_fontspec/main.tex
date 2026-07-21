@@ -1,0 +1,79 @@
+\documentclass[11pt]{article}
+\usepackage{fontspec}
+% TeX Gyre Pagella, loaded by filename so both XeTeX and LuaTeX find it
+% via kpathsea without requiring OS-level font installation.
+\setmainfont{texgyrepagella}[
+  Extension      = .otf,
+  UprightFont    = *-regular,
+  BoldFont       = *-bold,
+  ItalicFont     = *-italic,
+  BoldItalicFont = *-bolditalic,
+]
+\usepackage{booktabs}
+\usepackage[margin=1in]{geometry}
+
+\title{Naming Patterns and Household Energy Costs in the Texas Triangle:\\A Brief Descriptive Note}
+\author{Center for Regional Demographic Studies}
+\date{July 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Texas continues to draw new residents from across the United States and abroad, and the composition of the state's fast-growing metropolitan corridor reflects that mix. This short note presents two descriptive snapshots drawn from a synthetic household file constructed for methods testing. The first snapshot, shown in Table~\ref{tab:names}, summarizes the most common surnames among newly registered households in five metro counties. The second, shown in Table~\ref{tab:energy}, reports average summer utility expenditures and peak outdoor temperatures for the same counties.
+
+Neither table should be read as an official estimate. The figures are simulated values intended to exercise a document-processing pipeline that must handle accented characters, currency symbols, and other non-ASCII text without loss. Still, the structure mirrors real reporting products: a compact frequency table followed by a small panel of continuous measures.
+
+\section{Surname Composition}
+
+The surname distribution in Table~\ref{tab:names} illustrates the linguistic diversity of new registrations. Spanish-origin and Vietnamese-origin surnames appear alongside long-established Anglo names, and the share columns are calculated over each county's registration file rather than the pooled sample. Households headed by more than one adult are counted once, under the first-listed surname.
+
+\begin{table}[ht]
+\centering
+\caption{Most common surnames among newly registered households, by county (simulated)}
+\label{tab:names}
+\begin{tabular}{llrr}
+\toprule
+County file & Leading surname & Registrations & Share (\%) \\
+\midrule
+Bexar-A & Peña & 4\,183 & 6.7 \\
+Travis-B & Nguyễn & 2\,957 & 5.1 \\
+Harris-C & García & 6\,449 & 7.9 \\
+Dallas-D & Müller & 1\,061 & 2.3 \\
+El Paso-E & José-Ramírez & 3\,517 & 8.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two features stand out. First, the leading surname's share never exceeds one tenth of a county file, a reminder that even the most common names sit atop a long tail. Second, the presence of diacritics in the source records --- tildes, acute accents, and Vietnamese tone marks --- means that any downstream system that strips or mangles non-ASCII bytes will visibly corrupt the output. That property makes this table a useful canary for encoding errors.
+
+\section{Energy Costs and Summer Heat}
+
+Table~\ref{tab:energy} turns to household budgets. Summer electricity bills in the corridor rise steeply with peak temperature, and the euro-denominated column reflects a comparison series purchased from a European data vendor, converted at contract rates rather than spot rates. The temperature column records the highest afternoon reading at each county's reference station during the simulation window.
+
+\begin{table}[ht]
+\centering
+\caption{Average summer utility spending and peak temperature, by county (simulated)}
+\label{tab:energy}
+\begin{tabular}{lrrr}
+\toprule
+County file & Monthly bill (US\$) & Vendor series (€) & Peak temp. (°F) \\
+\midrule
+Bexar-A & 241.62 & €223.08 & 107.4° \\
+Travis-B & 228.19 & €210.66 & 105.9° \\
+Harris-C & 263.75 & €243.51 & 103.2° \\
+Dallas-D & 249.34 & €230.17 & 108.6° \\
+El Paso-E & 217.48 & €200.77 & 109.1° \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pattern is unsurprising: hotter counties pay more, though the relationship is not perfectly monotonic because housing stock and utility tariffs differ across markets. What matters for the present exercise is that the currency and degree symbols in Table~\ref{tab:energy} survive the full typesetting chain --- em-dashes in the prose, euro signs in the cells, and degree marks in both the header and the body.
+
+\section{Concluding Remarks}
+
+This note exists to test tooling, not to inform policy. Readers who need genuine estimates of migration, naming patterns, or energy burdens in Texas should consult the decennial census, the American Community Survey, and utility regulatory filings. The tables above will be extracted and flattened by an automated pipeline; if the accented names in Table~\ref{tab:names} or the symbols in Table~\ref{tab:energy} fail to reproduce, the pipeline --- not the prose --- is at fault.
+
+\end{document}

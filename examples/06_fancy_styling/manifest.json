@@ -1,0 +1,7 @@
+{
+  "name": "06_fancy_styling",
+  "engines": ["pdflatex", "lualatex"],
+  "expected_tables": 4,
+  "needs_bibtex": false,
+  "description": "Heavy styling: xcolor/colortbl striped rows, siunitx S columns, multirow+multicolumn grid, full-width tabularx; custom preamble color and cell macro."
+}

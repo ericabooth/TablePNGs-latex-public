@@ -1,0 +1,7 @@
+{
+  "name": "04_rotated",
+  "engines": ["pdflatex"],
+  "expected_tables": 3,
+  "needs_bibtex": false,
+  "description": "Rotated tables: a sidewaystable (rotating), a table float inside a pdflscape landscape, and a multi-page longtable inside a landscape block."
+}

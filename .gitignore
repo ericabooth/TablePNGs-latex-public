@@ -1,0 +1,20 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.lot
+*.lof
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+# tablepngs outputs in examples (regenerate with tests/run_tests.py --keep)
+examples/*/main_tablepngs*
+examples/*/main.pdf
+# OS noise
+.DS_Store
+__pycache__/
+tests/fixtures/*/main_tablepngs*
+tests/fixtures/*/main.pdf

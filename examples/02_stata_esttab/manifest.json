@@ -1,0 +1,7 @@
+{
+  "name": "02_stata_esttab",
+  "engines": ["pdflatex"],
+  "expected_tables": 3,
+  "needs_bibtex": false,
+  "description": "Stata esttab-style fragments via \\input, plus a threeparttable with resizebox; 3 table floats"
+}

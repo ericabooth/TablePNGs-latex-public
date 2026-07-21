@@ -1,0 +1,89 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{threeparttable}
+\usepackage[hidelinks]{hyperref}
+\newcommand{\sym}[1]{\rlap{$^{#1}$}}
+
+\title{Broadband Access and Earnings in Texas:\\Evidence from a Statewide Household Survey}
+\author{Policy Research Working Paper}
+\date{July 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent This working paper examines the relationship between residential broadband access and labor-market earnings across Texas households. Using a statewide household survey fielded between 2023 and 2025, we estimate wage regressions that control for schooling and geography. We find a persistent earnings premium associated with home broadband, one that survives controls for education and metropolitan status. The results inform ongoing state deliberations over infrastructure funds directed at underserved regions.
+\end{abstract}
+
+\section{Introduction}
+
+Texas has committed substantial public resources to closing its digital divide. Whether household connectivity translates into measurable labor-market gains, however, remains contested. Skeptics argue that broadband adoption merely proxies for income and education; proponents point to remote-work opportunities and job-search efficiencies that connectivity unlocks. This paper brings new survey evidence to that debate.
+
+Our analysis proceeds in three steps. We first describe the analytic sample (Table~\ref{tab:desc}), then present baseline wage regressions (Table~\ref{tab:reg}), and finally probe heterogeneity across regions of the state (Table~\ref{tab:hetero}).
+
+\section{Data and Descriptive Statistics}
+
+The survey covers working-age adults drawn from all regions of the state, with oversamples in less densely populated counties. Respondents report earnings, schooling, household composition, and connectivity status. Table~\ref{tab:desc} summarizes the analytic sample. Roughly seven in ten respondents report a home broadband subscription, and a meaningful minority live in counties classified as rural under the state's funding formula.
+
+\begin{table}[htbp]
+\centering
+\caption{Descriptive statistics, analytic sample}
+\label{tab:desc}
+\input{tables/desc1}
+\end{table}
+
+Two features of the sample deserve note. First, the income distribution is right-skewed, as is typical of household surveys, so our regressions use log earnings. Second, commute times vary widely, reflecting the state's mix of dense metropolitan cores and long-distance rural travel.
+
+\section{Regression Results}
+
+Table~\ref{tab:reg} reports our baseline estimates. Column (1) shows the unconditional association between home broadband and log wages. Column (2) adds years of schooling, which attenuates the broadband coefficient but leaves it economically meaningful. Column (3) adds geographic controls for rural counties and border metropolitan areas; the broadband premium shrinks further but remains statistically distinguishable from zero.
+
+\begin{table}[htbp]
+\centering
+\caption{Broadband access and log hourly wages}
+\label{tab:reg}
+\input{tables/reg1}
+\end{table}
+
+The pattern across columns is consistent with a genuine connectivity effect rather than pure selection on education, though we caution that unobserved ability and local labor-demand conditions could still confound the estimates. Instrumental-variable strategies exploiting the staggered rollout of middle-mile infrastructure are a priority for future work.
+
+\section{Regional Heterogeneity}
+
+State infrastructure funds are allocated by region, so policymakers care where the returns to connectivity are largest. Table~\ref{tab:hetero} splits the sample into four broad regions and re-estimates the column (3) specification within each. The broadband coefficient is largest in the eastern timber region and smallest in the large metropolitan triangle, a pattern consistent with connectivity mattering most where in-person labor markets are thinnest.
+
+\begin{table}[htbp]
+\centering
+\caption{Broadband wage premium by region}
+\label{tab:hetero}
+\begin{threeparttable}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+ & Piney Woods & High Plains & Trans-Pecos & Metro Triangle \\
+\midrule
+Broadband access & 0.311\sym{***} & 0.243\sym{**} & 0.196\sym{*} & 0.118\sym{*} \\
+ & (0.072) & (0.081) & (0.094) & (0.048) \\
+Years of schooling & 0.077\sym{***} & 0.084\sym{***} & 0.069\sym{***} & 0.088\sym{***} \\
+ & (0.014) & (0.016) & (0.019) & (0.006) \\
+\midrule
+Largest county in region & Nacogdoches & Lubbock & Brewster & Harris \\
+Observations & 1418 & 1276 & 943 & 4576 \\
+\(R^{2}\) & 0.171 & 0.158 & 0.149 & 0.166 \\
+\bottomrule
+\end{tabular}%
+}
+\begin{tablenotes}
+\footnotesize
+\item Standard errors in parentheses. \sym{*} \(p<0.05\), \sym{**} \(p<0.01\), \sym{***} \(p<0.001\).
+\item Each column re-estimates the full specification within the indicated region. Region definitions follow the state funding formula.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+\section{Conclusion}
+
+Home broadband is associated with a robust earnings premium among Texas workers, and the premium appears largest outside the state's major metropolitan areas. These findings support geographically targeted infrastructure investment, while underscoring the need for quasi-experimental evidence before causal claims can be made with confidence.
+
+\end{document}

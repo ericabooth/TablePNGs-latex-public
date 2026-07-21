@@ -1,0 +1,1 @@
+{"name": "03_longtable", "engines": ["pdflatex"], "expected_tables": 2, "needs_bibtex": false, "description": "Two longtables: a 120-row county panel spanning multiple pages with first/continued heads and continued-on-next-page foot, plus a short one-page subregional summary."}

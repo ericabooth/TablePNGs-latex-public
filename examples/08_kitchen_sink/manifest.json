@@ -1,0 +1,7 @@
+{
+  "name": "08_kitchen_sink",
+  "engines": ["pdflatex", "xelatex", "lualatex"],
+  "expected_tables": 6,
+  "needs_bibtex": false,
+  "description": "Gallery centerpiece: booktabs, tabularx, threeparttable, bare inline tabular, multi-page longtable, and sidewaystable in a 6-page Texas workforce report."
+}

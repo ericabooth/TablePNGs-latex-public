@@ -1,0 +1,7 @@
+{
+  "name": "07_refs_cites",
+  "engines": ["pdflatex"],
+  "expected_tables": 2,
+  "needs_bibtex": true,
+  "description": "natbib + plain bibtex example: two table floats, one with \\citep inside a cell and one with \\ref{sec:...} inside cells, plus prose citations."
+}

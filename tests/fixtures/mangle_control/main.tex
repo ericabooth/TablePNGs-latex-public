@@ -1,0 +1,39 @@
+% NEGATIVE CONTROL for tablepngs' visual verification (--compare).
+%
+% This document is deliberately built to defeat naive flattening. Two macros
+% are defined in the preamble with placeholder values and REDEFINED in the
+% document body before the table uses them. A snippet compiled from the
+% preamble alone therefore compiles cleanly but renders the WRONG text --
+% exactly the kind of silent mangling that a text-layer check cannot see.
+%
+% Expected result:  tablepngs main.tex --compare  exits 3 and reports a
+% MISMATCH for t01. If this fixture ever PASSES, the visual check has lost
+% its teeth and something is broken.
+\documentclass{article}
+\usepackage{booktabs}
+\newcommand{\region}{PLACEHOLDER}
+\newcommand{\headline}{Draft}
+\begin{document}
+
+Regional employment data for the demonstration counties are summarized in
+Table~\ref{tab:control}. The values below are simulated.
+
+\renewcommand{\region}{Nacogdoches}
+\renewcommand{\headline}{Final}
+
+\begin{table}[htbp]
+\centering
+\caption{\headline{} regional indicators}\label{tab:control}
+\begin{tabular}{lr}
+\toprule
+County & Employers \\
+\midrule
+\region & 8214 \\
+Zavala & 4471 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The counties above were selected for the pilot phase.
+
+\end{document}

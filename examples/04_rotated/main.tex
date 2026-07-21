@@ -1,0 +1,203 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{rotating}
+\usepackage{pdflscape}
+\usepackage{longtable}
+
+\title{Rural Labor Markets and Small-Business Formation in Texas:\\
+A County-Level Assessment}
+\author{Office of Rural Economic Research}
+\date{July 2026}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+Rural Texas has long been treated as a residual category in state economic
+planning: the counties that remain once the metropolitan triangle of Dallas,
+Houston, San Antonio, and Austin is set aside. Yet these counties hold a
+disproportionate share of the state's land, water, and energy infrastructure,
+and their labor markets behave in ways that statewide averages obscure. This
+report assembles county-level indicators on population, labor force
+participation, household income, broadband availability, business
+establishment counts, and recent employment change to characterize how rural
+labor markets have evolved since the pandemic-era disruptions.
+
+The analysis draws on simulated administrative records constructed for
+methodological testing. No figure in this report should be cited as an
+official statistic; the purpose is to demonstrate a reporting format that
+state agencies could adopt for genuine data releases.
+
+\section{Regional patterns in the western districts}
+
+The clearest divergence appears in the western planning districts, where
+energy-sector volatility drives large swings in both employment and
+establishment counts. Table~\ref{tab:western} presents the full indicator
+panel for a selection of western district counties. Two patterns stand out.
+First, labor force participation varies far more across neighboring counties
+than conventional regional summaries suggest. Second, establishment growth is
+only weakly correlated with population size: several of the smallest counties
+posted the strongest gains, consistent with a low-base effect rather than
+genuine structural change.
+
+\begin{sidewaystable}
+\centering
+\caption{Selected western district indicators, simulated 2025 panel}
+\label{tab:western}
+\begin{tabular}{lrrrrrrr}
+\toprule
+County & Population & LFP (\%) & Median HH inc.\ (\$) & Broadband gap (\%) & Establishments & Empl.\ change (\%) & District code \\
+\midrule
+Ector Bend    & 61,447 & 58.3 & 52,914 & 12.7 & 2,183 &  3.9 & W-14 \\
+Pecos Draw    &  8,731 & 44.9 & 47,208 & 21.4 &   412 & 11.2 & W-14 \\
+Sierra Blanca &  4,109 & 39.1 & 43,551 & 28.8 &   187 & -2.1 & W-15 \\
+Toyah Flats   & 12,586 & 51.7 & 55,873 & 17.2 &   639 &  6.8 & W-15 \\
+Salt Basin    & 27,914 & 63.4 & 61,207 &  9.3 & 1,046 &  1.4 & W-16 \\
+Quito Mesa    &  3,358 & 41.8 & 49,776 & 24.9 &   141 &  8.7 & W-16 \\
+Alamito Creek & 19,462 & 55.2 & 58,341 & 14.6 &   823 & -0.8 & W-17 \\
+\bottomrule
+\end{tabular}
+\end{sidewaystable}
+
+\section{Establishment dynamics}
+
+A second question concerns whether small-business formation in rural counties
+is keeping pace with the state as a whole. Table~\ref{tab:formation} reports
+establishment birth and death rates alongside net formation for a set of
+comparison groups defined by district and by distance to the nearest
+metropolitan area. The headline finding is that net formation in remote
+counties is positive but fragile: birth rates are respectable, but death rates
+run several points higher than in counties adjacent to a metro, so the net
+figure depends heavily on a handful of surviving firms in each cohort.
+
+\begin{landscape}
+\begin{table}
+\centering
+\caption{Establishment birth and death rates by comparison group, simulated 2023--2025 cohorts}
+\label{tab:formation}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+Comparison group & Births 2023 & Deaths 2023 & Births 2024 & Deaths 2024 & Births 2025 & Deaths 2025 & Net rate (\%) & Survival at 24 mo.\ (\%) \\
+\midrule
+Metro-adjacent, ag-dominant      & 1,872 & 1,431 & 1,944 & 1,502 & 2,036 & 1,489 &  4.6 & 71.8 \\
+Metro-adjacent, energy-dominant  & 2,215 & 1,988 & 2,301 & 2,144 & 2,187 & 2,079 &  1.9 & 64.2 \\
+Remote, ag-dominant              &   934 &   861 &   917 &   889 &   961 &   902 &  1.1 & 68.4 \\
+Remote, energy-dominant          & 1,148 & 1,207 & 1,233 & 1,164 & 1,296 & 1,171 &  0.7 & 59.6 \\
+Remote, trade-corridor           &   688 &   594 &   731 &   617 &   779 &   633 &  3.8 & 73.1 \\
+Border, mixed economy            & 1,509 & 1,342 & 1,587 & 1,398 & 1,644 & 1,417 &  3.2 & 69.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{landscape}
+
+\section{The full county panel}
+
+For completeness, Table~\ref{tab:panel} lists the complete simulated panel
+for all counties in the study frame. Readers interested in a particular
+county can locate it there; the columns follow the same definitions used in
+the preceding sections. Because the panel is wide, it is set in landscape
+orientation and continues across multiple pages.
+
+Three cautions apply when reading the panel. Small-county rates are noisy:
+a single plant opening or closure can move the employment-change column by
+several points. Broadband gap figures reflect advertised rather than
+delivered service. And the establishment counts include nonemployer firms,
+which inflates totals in counties with substantial farm and ranch
+proprietorships.
+
+\begin{landscape}
+\begin{longtable}{lrrrrrr}
+\caption{Complete simulated county panel: population, labor force participation, income, broadband, establishments, and employment change}
+\label{tab:panel} \\
+\toprule
+County & Population & LFP (\%) & Median HH inc.\ (\$) & Broadband gap (\%) & Establishments & Empl.\ change (\%) \\
+\midrule
+\endfirsthead
+\multicolumn{7}{l}{\small\emph{Table \ref{tab:panel}, continued}} \\
+\toprule
+County & Population & LFP (\%) & Median HH inc.\ (\$) & Broadband gap (\%) & Establishments & Empl.\ change (\%) \\
+\midrule
+\endhead
+\midrule
+\multicolumn{7}{r}{\small\emph{Continued on next page}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+Nacogdoches & 53,827 & 62.5 & 43,967 & 18.6 & 1,307 & 2.6 \\
+Zavala & 96,887 & 74.4 & 47,842 & 14.8 & 2,391 & 5.1 \\
+Kleberg & 26,948 & 32.0 & 40,466 & 8.4 & 1,503 & 13.8 \\
+Ochiltree & 94,746 & 65.9 & 54,209 & 24.4 & 1,598 & 2.2 \\
+Wharton & 51,766 & 41.3 & 51,013 & 22.4 & 2,913 & 7.6 \\
+Bosque & 41,257 & 59.6 & 50,196 & 21.3 & 2,444 & -0.4 \\
+Refugio & 27,649 & 58.0 & 78,879 & 13.2 & 3,874 & -6.7 \\
+Terrell & 93,163 & 32.5 & 73,585 & 24.1 & 3,382 & 4.1 \\
+Yoakum & 59,769 & 59.3 & 38,849 & 14.3 & 1,018 & 9.8 \\
+Menard & 68,326 & 61.0 & 76,834 & 15.2 & 4,048 & -9.5 \\
+Lampasas & 30,561 & 60.4 & 60,264 & 24.0 & 917 & -4.4 \\
+Gaines & 9,149 & 41.4 & 66,970 & 4.7 & 3,802 & -5.2 \\
+Motley & 18,999 & 43.3 & 71,271 & 17.9 & 2,252 & -3.6 \\
+Sabine & 10,536 & 74.8 & 57,617 & 17.3 & 2,700 & -3.7 \\
+Duval & 59,214 & 36.6 & 43,405 & 15.3 & 2,857 & -0.9 \\
+Crockett & 21,461 & 69.9 & 70,314 & 26.3 & 295 & 4.3 \\
+Hansford & 90,175 & 42.7 & 77,954 & 23.6 & 2,708 & 8.2 \\
+Jim Hogg & 73,958 & 32.7 & 57,653 & 5.9 & 2,845 & 6.5 \\
+La Salle & 76,655 & 42.6 & 49,153 & 10.9 & 2,232 & 5.3 \\
+Loving & 29,529 & 49.0 & 65,350 & 11.0 & 3,918 & -4.7 \\
+Upshur & 49,031 & 72.9 & 43,652 & 22.9 & 203 & -3.4 \\
+Winkler & 54,505 & 48.0 & 75,568 & 22.7 & 1,334 & 3.6 \\
+Coke & 42,633 & 32.6 & 67,791 & 4.7 & 2,061 & 12.5 \\
+Delta & 90,649 & 73.3 & 43,012 & 7.5 & 3,591 & 0.0 \\
+Foard & 74,044 & 76.6 & 61,065 & 18.0 & 2,106 & 8.2 \\
+Glasscock & 2,638 & 72.7 & 62,841 & 23.6 & 1,845 & -4.6 \\
+Hemphill & 23,411 & 52.1 & 79,450 & 15.5 & 1,679 & 11.9 \\
+Irion & 81,507 & 45.0 & 60,519 & 19.9 & 1,352 & -3.7 \\
+Jeff Davis & 95,654 & 62.6 & 51,039 & 5.0 & 801 & -3.0 \\
+Kenedy & 72,134 & 60.2 & 80,064 & 23.5 & 768 & 5.1 \\
+Lipscomb & 45,214 & 57.5 & 80,862 & 26.0 & 185 & 5.4 \\
+Mills & 32,296 & 34.8 & 61,132 & 16.7 & 2,363 & 13.6 \\
+Newton & 92,903 & 71.6 & 57,213 & 20.3 & 164 & -6.6 \\
+Oldham & 90,042 & 41.3 & 41,329 & 22.9 & 2,179 & 5.4 \\
+Presidio & 62,861 & 54.4 & 40,383 & 4.2 & 958 & -4.6 \\
+Rains & 62,704 & 46.1 & 56,820 & 6.0 & 3,785 & -1.3 \\
+Real & 6,528 & 40.3 & 41,511 & 8.9 & 1,752 & 2.3 \\
+Roberts & 29,789 & 39.2 & 80,752 & 21.9 & 3,010 & -5.7 \\
+Runnels & 18,394 & 45.7 & 70,473 & 14.8 & 689 & -5.7 \\
+San Saba & 84,946 & 59.7 & 62,213 & 24.7 & 365 & 9.2 \\
+Schleicher & 18,743 & 53.3 & 52,117 & 7.5 & 1,797 & -2.6 \\
+Shackelford & 6,171 & 41.4 & 46,522 & 10.2 & 2,011 & 8.9 \\
+Somervell & 50,021 & 42.5 & 61,677 & 5.8 & 2,974 & -4.8 \\
+Sterling & 33,040 & 53.2 & 65,448 & 21.3 & 2,307 & 13.7 \\
+Stonewall & 47,967 & 44.4 & 58,542 & 9.6 & 123 & 13.6 \\
+Sutton & 89,708 & 34.9 & 56,396 & 7.8 & 2,360 & 12.6 \\
+Swisher & 47,406 & 43.6 & 70,196 & 8.5 & 2,800 & -8.0 \\
+Throckmorton & 57,642 & 42.6 & 48,817 & 17.9 & 2,590 & 13.7 \\
+Trinity & 11,894 & 70.4 & 75,588 & 25.8 & 1,134 & -9.2 \\
+Upton & 42,476 & 56.4 & 70,083 & 21.6 & 1,880 & 9.4 \\
+Wheeler & 76,443 & 49.6 & 64,563 & 10.1 & 899 & -3.8 \\
+Wilbarger & 76,441 & 37.9 & 48,779 & 11.8 & 1,127 & -5.9 \\
+Zapata & 90,824 & 77.6 & 45,206 & 20.1 & 3,762 & 13.0 \\
+Armstrong & 70,716 & 61.0 & 79,547 & 26.6 & 270 & -6.0 \\
+Bailey & 55,116 & 67.0 & 73,847 & 7.4 & 1,137 & -5.1 \\
+Baylor & 32,142 & 69.8 & 64,998 & 15.3 & 1,970 & -1.2 \\
+Borden & 13,348 & 34.4 & 45,053 & 19.3 & 1,303 & 4.2 \\
+Briscoe & 79,490 & 73.9 & 44,359 & 13.3 & 3,801 & 4.5 \\
+Castro & 17,614 & 76.1 & 76,043 & 8.0 & 3,568 & -2.0 \\
+Childress & 3,422 & 70.8 & 59,065 & 11.3 & 342 & 12.8 \\
+Cochran & 13,040 & 45.0 & 58,498 & 10.4 & 1,105 & 2.7 \\
+Collingsworth & 52,277 & 77.5 & 66,992 & 20.6 & 488 & 2.5 \\
+\end{longtable}
+\end{landscape}
+
+\section{Conclusion}
+
+The format demonstrated here---compact indicator tables for regional
+highlights (Table~\ref{tab:western}), grouped comparisons for dynamics
+(Table~\ref{tab:formation}), and a full landscape panel for reference
+(Table~\ref{tab:panel})---balances readability with completeness. Agencies
+adopting it for real data should pair each table with the microdata vintage
+and suppression rules used to construct it, so that county officials can
+reconcile published figures against their own records.
+
+\end{document}

@@ -1,0 +1,7 @@
+{
+  "name": "05_unicode_fontspec",
+  "engines": ["xelatex", "lualatex"],
+  "expected_tables": 2,
+  "needs_bibtex": false,
+  "description": "fontspec + TeX Gyre Pagella with Unicode table content (accented names, euro, degree, em-dash); two booktabs table floats"
+}

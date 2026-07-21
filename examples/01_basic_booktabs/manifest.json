@@ -1,0 +1,7 @@
+{
+  "name": "01_basic_booktabs",
+  "engines": ["pdflatex"],
+  "expected_tables": 3,
+  "needs_bibtex": false,
+  "description": "Basic article with three booktabs table floats: caption above, caption below (tabular wrapped in center), and an unnumbered caption* table."
+}

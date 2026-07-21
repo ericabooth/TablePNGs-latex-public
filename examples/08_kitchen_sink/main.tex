@@ -1,0 +1,303 @@
+\documentclass[11pt]{article}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{threeparttable}
+\usepackage{longtable}
+\usepackage{rotating}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+\title{Regional Workforce Trends in Texas:\\ A Mid-Decade Assessment}
+\author{Office of Economic Opportunity Research}
+\date{July 2026}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+Texas continues to add residents and jobs at a pace that outstrips most other
+large states, but the gains are not evenly distributed across its regions. This
+report reviews recent workforce indicators for a set of illustrative
+communities, with attention to labor force participation, occupational demand,
+childcare access as a work support, and commuting patterns. All figures in the
+tables that follow are simulated for demonstration purposes and should not be
+cited as official statistics.
+
+The analysis proceeds in four parts. Section~\ref{sec:labor} summarizes
+headline labor market indicators (Table~\ref{tab:headline}) and presents a
+detailed community-level panel (Table~\ref{tab:panel}). Section~\ref{sec:occ}
+reviews occupational demand projections (Table~\ref{tab:occ}). Section~\ref{sec:supports}
+examines childcare capacity as a barrier to parental employment
+(Table~\ref{tab:childcare}), including a brief inline comparison of survey
+waves. Section~\ref{sec:commute} closes with a wide-format commuting matrix
+(Table~\ref{tab:commute}).
+
+\section{Headline labor market indicators}\label{sec:labor}
+
+Statewide, the labor market remained tight through the first half of the year.
+Employers in the trade, transportation, and utilities supersector reported the
+largest year-over-year gains, while information-sector employment was roughly
+flat. Table~\ref{tab:headline} presents the headline indicators for the four
+demonstration regions used throughout this report. Two patterns stand out.
+First, the gap between the strongest and weakest regional unemployment rates
+narrowed relative to the prior year. Second, average weekly earnings growth
+was strongest in the region with the youngest workforce, consistent with
+compositional shifts toward higher-paying entry occupations.
+
+\begin{table}[htbp]
+\centering
+\caption{Headline labor market indicators by demonstration region}
+\label{tab:headline}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Region & Labor force & Unemp.\ rate (\%) & Avg.\ weekly earnings & YoY jobs (\%) \\
+\midrule
+Palo Duro Rim    & 412{,}807 & 3.7 & \$1{,}147 & 2.9 \\
+Blackland Spine  & 987{,}214 & 4.1 & \$1{,}362 & 3.4 \\
+Pineywoods Edge  & 226{,}553 & 5.3 & \$941     & 1.2 \\
+Caprock Shelf    & 148{,}039 & 3.1 & \$1{,}018 & 4.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A fuller community-level panel appears in Table~\ref{tab:panel}, which reports
+labor force size, net jobs added, the unemployment rate, and the median hourly
+wage for ninety demonstration communities. The panel is deliberately long: it
+is intended to exercise page-spanning table handling. Readers interested only
+in the regional story can skip directly to Section~\ref{sec:occ} without loss
+of continuity.
+
+{\small
+\begin{longtable}{@{}lrrrr@{}}
+\caption{Community-level workforce panel, demonstration data}
+\label{tab:panel} \\
+\toprule
+Community & Labor force & Net jobs added & Unemp.\ rate (\%) & Median wage \\
+\midrule
+\endfirsthead
+\caption[]{Community-level workforce panel (continued)} \\
+\toprule
+Community & Labor force & Net jobs added & Unemp.\ rate (\%) & Median wage \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{\emph{Continued on next page}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+Nacogdoches & 3,041 & 113 & 2.1 & \$14.25 \\
+Muleshoe & 3,178 & 202 & 2.8 & \$15.55 \\
+Dime Box & 3,315 & 291 & 3.5 & \$16.85 \\
+Cut and Shoot & 3,452 & 380 & 4.2 & \$18.15 \\
+Wink & 3,589 & 469 & 4.9 & \$19.45 \\
+Telephone & 3,726 & 558 & 5.6 & \$20.75 \\
+Gun Barrel City & 3,863 & 647 & 6.3 & \$22.05 \\
+Ding Dong & 4,000 & 736 & 7.0 & \$23.35 \\
+Oatmeal & 4,137 & 125 & 2.4 & \$24.65 \\
+Noodle & 4,274 & 214 & 3.1 & \$25.95 \\
+Bug Tussle & 4,411 & 303 & 3.8 & \$27.25 \\
+Uncertain & 4,548 & 392 & 4.5 & \$28.55 \\
+Loco & 4,685 & 481 & 5.2 & \$29.85 \\
+Notrees & 4,822 & 570 & 5.9 & \$31.15 \\
+Happy & 4,959 & 659 & 6.6 & \$32.45 \\
+Earth & 5,096 & 748 & 7.3 & \$14.75 \\
+Turkey & 5,233 & 137 & 2.7 & \$16.05 \\
+Goodnight & 5,370 & 226 & 3.4 & \$17.35 \\
+Bigfoot & 5,507 & 315 & 4.1 & \$18.65 \\
+Zephyr & 5,644 & 404 & 4.8 & \$19.95 \\
+Study Butte & 5,781 & 493 & 5.5 & \$21.25 \\
+Point Blank & 5,918 & 582 & 6.2 & \$22.55 \\
+North Zulch & 6,055 & 671 & 6.9 & \$23.85 \\
+Old Glory & 6,192 & 760 & 2.3 & \$25.15 \\
+Pep & 6,329 & 149 & 3.0 & \$26.45 \\
+Circle Back & 6,466 & 238 & 3.7 & \$27.75 \\
+Fairy & 6,603 & 327 & 4.4 & \$29.05 \\
+Lazbuddie & 6,740 & 416 & 5.1 & \$30.35 \\
+Salty & 6,877 & 505 & 5.8 & \$31.65 \\
+Tarzan & 7,014 & 594 & 6.5 & \$32.95 \\
+Nacogdoches South & 7,151 & 683 & 7.2 & \$15.25 \\
+Muleshoe South & 7,288 & 772 & 2.6 & \$16.55 \\
+Dime Box South & 7,425 & 161 & 3.3 & \$17.85 \\
+Cut and Shoot South & 7,562 & 250 & 4.0 & \$19.15 \\
+Wink South & 7,699 & 339 & 4.7 & \$20.45 \\
+Telephone South & 7,836 & 428 & 5.4 & \$21.75 \\
+Gun Barrel City South & 7,973 & 517 & 6.1 & \$23.05 \\
+Ding Dong South & 8,110 & 606 & 6.8 & \$24.35 \\
+Oatmeal South & 8,247 & 695 & 2.2 & \$25.65 \\
+Noodle South & 8,384 & 784 & 2.9 & \$26.95 \\
+Bug Tussle South & 8,521 & 173 & 3.6 & \$28.25 \\
+Uncertain South & 8,658 & 262 & 4.3 & \$29.55 \\
+Loco South & 8,795 & 351 & 5.0 & \$30.85 \\
+Notrees South & 8,932 & 440 & 5.7 & \$32.15 \\
+Happy South & 9,069 & 529 & 6.4 & \$14.45 \\
+Earth South & 9,206 & 618 & 7.1 & \$15.75 \\
+Turkey South & 9,343 & 707 & 2.5 & \$17.05 \\
+Goodnight South & 9,480 & 796 & 3.2 & \$18.35 \\
+Bigfoot South & 9,617 & 185 & 3.9 & \$19.65 \\
+Zephyr South & 9,754 & 274 & 4.6 & \$20.95 \\
+Study Butte South & 9,891 & 363 & 5.3 & \$22.25 \\
+Point Blank South & 10,028 & 452 & 6.0 & \$23.55 \\
+North Zulch South & 10,165 & 541 & 6.7 & \$24.85 \\
+Old Glory South & 10,302 & 630 & 2.1 & \$26.15 \\
+Pep South & 10,439 & 719 & 2.8 & \$27.45 \\
+Circle Back South & 10,576 & 808 & 3.5 & \$28.75 \\
+Fairy South & 10,713 & 197 & 4.2 & \$30.05 \\
+Lazbuddie South & 10,850 & 286 & 4.9 & \$31.35 \\
+Salty South & 10,987 & 375 & 5.6 & \$32.65 \\
+Tarzan South & 11,124 & 464 & 6.3 & \$14.95 \\
+Nacogdoches East & 11,261 & 553 & 7.0 & \$16.25 \\
+Muleshoe East & 11,398 & 642 & 2.4 & \$17.55 \\
+Dime Box East & 11,535 & 731 & 3.1 & \$18.85 \\
+Cut and Shoot East & 11,672 & 120 & 3.8 & \$20.15 \\
+Wink East & 11,809 & 209 & 4.5 & \$21.45 \\
+Telephone East & 11,946 & 298 & 5.2 & \$22.75 \\
+Gun Barrel City East & 3,083 & 387 & 5.9 & \$24.05 \\
+Ding Dong East & 3,220 & 476 & 6.6 & \$25.35 \\
+Oatmeal East & 3,357 & 565 & 7.3 & \$26.65 \\
+Noodle East & 3,494 & 654 & 2.7 & \$27.95 \\
+Bug Tussle East & 3,631 & 743 & 3.4 & \$29.25 \\
+Uncertain East & 3,768 & 132 & 4.1 & \$30.55 \\
+Loco East & 3,905 & 221 & 4.8 & \$31.85 \\
+Notrees East & 4,042 & 310 & 5.5 & \$33.15 \\
+Happy East & 4,179 & 399 & 6.2 & \$15.45 \\
+Earth East & 4,316 & 488 & 6.9 & \$16.75 \\
+Turkey East & 4,453 & 577 & 2.3 & \$18.05 \\
+Goodnight East & 4,590 & 666 & 3.0 & \$19.35 \\
+Bigfoot East & 4,727 & 755 & 3.7 & \$20.65 \\
+Zephyr East & 4,864 & 144 & 4.4 & \$21.95 \\
+Study Butte East & 5,001 & 233 & 5.1 & \$23.25 \\
+Point Blank East & 5,138 & 322 & 5.8 & \$24.55 \\
+North Zulch East & 5,275 & 411 & 6.5 & \$25.85 \\
+Old Glory East & 5,412 & 500 & 7.2 & \$27.15 \\
+Pep East & 5,549 & 589 & 2.6 & \$28.45 \\
+Circle Back East & 5,686 & 678 & 3.3 & \$29.75 \\
+Fairy East & 5,823 & 767 & 4.0 & \$31.05 \\
+Lazbuddie East & 5,960 & 156 & 4.7 & \$32.35 \\
+Salty East & 6,097 & 245 & 5.4 & \$14.65 \\
+Tarzan East & 6,234 & 334 & 6.1 & \$15.95 \\
+\end{longtable}
+}
+
+\section{Occupational demand}\label{sec:occ}
+
+Projected occupational demand reflects both replacement needs and net new
+growth. Health care support roles and skilled trades dominate the top of the
+demand rankings in every region, though the mix varies with local industry
+structure. Table~\ref{tab:occ} lists selected occupations with projected
+openings and typical education requirements; the description column uses the
+full available text width, which is why the table is set with a flexible
+column layout.
+
+\begin{table}[htbp]
+\centering
+\caption{Selected occupations: projected annual openings and entry requirements}
+\label{tab:occ}
+\begin{tabularx}{\textwidth}{@{}lrrX@{}}
+\toprule
+Occupation & Openings & Growth (\%) & Notes on entry pathway \\
+\midrule
+Wind turbine technician & 1{,}943 & 44.8 & Certificate programs at Sweetwater and Borger campuses; median completion time 14 months. \\
+Licensed vocational nurse & 8{,}671 & 12.6 & Bridge programs allow articulation to RN within 26 months at partner colleges. \\
+Diesel mechanic & 4{,}058 & 9.4 & Registered apprenticeship expanded to 17 new sponsor employers in Lamesa and Sonora. \\
+Cybersecurity analyst & 2{,}317 & 31.9 & Stackable credential ladder; entry possible with sub-baccalaureate certificate plus lab hours. \\
+Early childhood teacher & 6{,}482 & 7.3 & CDA credential remains the modal entry point; wage supplement pilot active in three regions. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The occupational picture interacts with training capacity. Where community
+college programs are oversubscribed, projected openings can go unfilled even
+in high-wage fields. Regional workforce boards have responded by funding
+evening cohorts and equipment purchases, though instructor recruitment remains
+the binding constraint in most rural service areas.
+
+\section{Work supports: childcare capacity}\label{sec:supports}
+
+Access to reliable childcare is one of the most consistent predictors of
+sustained labor force participation among parents of young children. Licensed
+capacity has grown modestly, but subsidized seats remain scarce relative to
+estimated need, especially for infant care. Table~\ref{tab:childcare} reports
+demonstration estimates of licensed capacity, estimated need, and the
+resulting gap, with methodological caveats in the table notes.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Licensed childcare capacity and estimated need, children under 6}
+\label{tab:childcare}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Region & Licensed seats & Est.\ need & Gap & Gap ratio \\
+\midrule
+Palo Duro Rim   & 18{,}412 & 27{,}906 & 9{,}494  & 1.52 \\
+Blackland Spine & 61{,}377 & 74{,}218 & 12{,}841 & 1.21 \\
+Pineywoods Edge & 9{,}063  & 16{,}540 & 7{,}477  & 1.83 \\
+Caprock Shelf   & 5{,}891  & 8{,}774  & 2{,}883  & 1.49 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\footnotesize
+\item[a] Estimated need assumes 68.5 percent of children under 6 have all
+resident parents in the labor force.
+\item[b] Gap ratio is estimated need divided by licensed seats; values above
+1.0 indicate unmet need. Family, friend, and neighbor care is excluded.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Survey evidence points in the same direction. Among parents who left a job in
+the past year, the share citing care disruptions as the primary reason has
+risen in each of the last three waves, as the following inline tabulation of
+wave-over-wave responses shows:
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+Reason cited        & Wave A & Wave B & Wave C \\
+Care disruption     & 23.4\% & 28.9\% & 33.1\% \\
+Schedule volatility & 19.7\% & 18.2\% & 17.6\% \\
+Relocation          & 11.8\% & 10.4\% & 9.9\%  \\
+\end{tabular}
+\end{center}
+and the increase is concentrated among parents of infants. The pattern holds
+after adjusting for industry mix and shift type, suggesting the constraint is
+structural rather than cyclical.
+
+\section{Commuting patterns}\label{sec:commute}
+
+Finally, commuting flows knit the demonstration regions together. Because the
+flow matrix requires more horizontal space than a portrait page allows, it is
+presented in landscape orientation in Table~\ref{tab:commute}. The dominant
+flows run from bedroom communities toward the two employment cores, but
+reverse commuting has grown as distribution centers locate along interstate
+corridors outside the cores.
+
+\begin{sidewaystable}
+\centering
+\caption{Estimated daily worker flows between demonstration regions (thousands)}
+\label{tab:commute}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+ & \multicolumn{6}{c}{Workplace region} \\
+\cmidrule(l){2-7}
+Residence region & Palo Duro Rim & Blackland Spine & Pineywoods Edge & Caprock Shelf & Out-of-state & Remote \\
+\midrule
+Palo Duro Rim   & 171.4 & 38.2  & 4.7   & 12.9 & 3.3  & 21.8 \\
+Blackland Spine & 29.6  & 402.1 & 17.3  & 6.4  & 11.2 & 58.7 \\
+Pineywoods Edge & 3.1   & 22.8  & 88.6  & 1.9  & 7.4  & 13.2 \\
+Caprock Shelf   & 14.7  & 8.3   & 1.2   & 61.9 & 2.6  & 8.1  \\
+\bottomrule
+\end{tabular}
+\end{sidewaystable}
+
+\section{Conclusion}
+
+The demonstration data reviewed here illustrate a consistent story: regional
+labor markets are tight, occupational demand is concentrated in middle-skill
+fields with constrained training pipelines, and childcare scarcity continues
+to suppress parental labor supply. Policy attention to training capacity and
+care infrastructure would address the two most binding constraints
+simultaneously. Subsequent reports will extend the panel in
+Table~\ref{tab:panel} and refine the flow estimates in
+Table~\ref{tab:commute} as new demonstration waves become available.
+
+\end{document}
