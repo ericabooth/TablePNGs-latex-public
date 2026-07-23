@@ -128,6 +128,12 @@ If the script reports `MISMATCH`:
   visually. If they look identical, it may be a harmless rendering
   difference; say so explicitly and show your reasoning. If they differ,
   treat it as a real defect.
+- **"sits inside \begin{<something>}" note, content complete but pixels
+  differ** — the table lives in a custom box (tcolorbox call-out, minipage)
+  whose inner width the snippet cannot know. The flattened table is complete
+  but proportioned differently. Show the user the sheet and offer the
+  choice: accept the flattened look, or `--skip <n>` to keep that one table
+  as live text (Word may reflow it).
 
 The repo ships a negative control at `tests/fixtures/mangle_control/` that is
 built to be mangled; running the script on it MUST report a MISMATCH. Use it

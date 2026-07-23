@@ -368,6 +368,21 @@ STYLE_WITH_ARGS = {
     "definecolor": 3, "captionsetup": 1, "rowcolors": 3, "arrayrulecolor": 1,
     "setstretch": 1, "fontsize": 2, "selectfont": 0,
 }
+# TeX registers assigned primitive-style (\hfuzz=20pt, \tabcolsep 3pt,
+# \looseness=-1): keep the WHOLE assignment or none of it -- a bare register
+# name left in the stream eats the next token as its value.
+STYLE_REGISTERS = {
+    "hfuzz", "vfuzz", "tolerance", "hbadness", "vbadness", "looseness",
+    "emergencystretch", "tabcolsep", "arraycolsep", "extrarowheight",
+    "parindent", "parskip", "baselineskip", "lineskip", "arrayrulewidth",
+    "doublerulesep", "abovecaptionskip", "belowcaptionskip",
+    "LTpre", "LTpost", "LTleft", "LTright", "LTcapwidth",
+}
+REGISTER_VALUE_RE = re.compile(
+    r"\s*=?\s*(?:[-+]?[\d.]+\s*(?:pt|mm|cm|in|ex|em|bp|pc|dd|cc|sp|mu|fil{1,3})?"
+    r"|\\[a-zA-Z@]+)"
+    r"(?:\s+plus\s+[-+]?[\d.]+\s*[a-z]*)?(?:\s+minus\s+[-+]?[\d.]+\s*[a-z]*)?")
+
 # Never carry these across: they are structure or content, not styling.
 STYLE_BLACKLIST = {
     "begin", "end", "item", "caption", "captionof", "label", "ref", "cite",
@@ -401,6 +416,20 @@ def extract_style_declarations(chunk):
         if name in STYLE_BLACKLIST:
             continue
         i = m.end()
+        if name in STYLE_REGISTERS:
+            mv = REGISTER_VALUE_RE.match(masked, i)
+            if mv and mv.group(0).strip(" =\t\n"):
+                out.append(chunk[m.start():mv.end()])
+                consumed = mv.end()
+            # no value found: drop the bare register name entirely
+            continue
+        # an unknown macro being ASSIGNED to (\foo=...) is a register we do
+        # not know; keeping any part of it is unsafe
+        k = i
+        while k < len(masked) and masked[k] in " \t\n":
+            k += 1
+        if k < len(masked) and masked[k] == "=":
+            continue
         nargs = STYLE_WITH_ARGS.get(name)
         if nargs:
             j = i
@@ -430,7 +459,83 @@ def extract_style_declarations(chunk):
     return "".join(out)
 
 
-def leading_style_context(text, masked, start, max_chars=600):
+# Document-global style assignments worth replaying into a snippet: a
+# top-level \setlength{\tabcolsep}{4pt} in an appendix silently restyles
+# every later table in the document, and the original rendering depends on it.
+GLOBAL_STYLE_PATTERNS = [
+    re.compile(r"\\(?:setlength|addtolength)\s*\{\s*\\[a-zA-Z@]+\s*\}\s*\{[^{}]*\}"),
+    re.compile(r"\\renewcommand\s*\{\s*\\arraystretch\s*\}\s*\{[^{}]*\}"),
+    re.compile(r"\\arrayrulecolor\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}"),
+    re.compile(r"\\captionsetup\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}"),
+    re.compile(r"\\rowcolors\*?\s*\{[^{}]*\}\s*\{[^{}]*\}\s*\{[^{}]*\}"),
+    re.compile(r"\\definecolor\s*\{[^{}]*\}\s*\{[^{}]*\}\s*\{[^{}]*\}"),
+]
+GLOBAL_REGISTER_PATTERN = re.compile(
+    r"\\(?:" + "|".join(sorted(k for k in [
+        "hfuzz", "vfuzz", "tolerance", "hbadness", "vbadness",
+        "emergencystretch", "tabcolsep", "arraycolsep", "extrarowheight",
+        "arrayrulewidth", "doublerulesep",
+        "LTpre", "LTpost", "LTleft", "LTright", "LTcapwidth",
+    ])) + r")(?![a-zA-Z])\s*=?\s*[-+]?[\d.]+\s*"
+    r"(?:pt|mm|cm|in|ex|em|bp|pc|dd|cc|sp|mu)(?![a-zA-Z])")
+
+
+def global_style_prefixes(text, masked, body_off, cuts):
+    """Style assignments executed at DOCUMENT level (outside every group,
+    environment and brace) between \\begin{document} and each offset in
+    `cuts`, in order. These leak forward in the original document -- a
+    top-level \\setlength{\\tabcolsep}{4pt} in one appendix restyles every
+    table after it -- so snippets must replay them to typeset each table the
+    way the document actually did. One pass serves all cuts."""
+    cuts = sorted(set(cuts))
+    result = {}
+    if not cuts:
+        return result
+    upto = cuts[-1]
+    events = sorted(
+        {(m.start(), m.end())
+         for pat in (*GLOBAL_STYLE_PATTERNS, GLOBAL_REGISTER_PATTERN)
+         for m in pat.finditer(masked, body_off, upto)})
+    out, d, i, ev, ci = [], 0, body_off, 0, 0
+    while i <= upto:
+        while ci < len(cuts) and cuts[ci] <= i:
+            result[cuts[ci]] = "\n".join(out)
+            ci += 1
+        if ci >= len(cuts):
+            break
+        while ev < len(events) and events[ev][0] < i:
+            ev += 1
+        if ev < len(events) and events[ev][0] == i:
+            s, e = events[ev]
+            if d == 0:
+                out.append(text[s:e])
+            i = e
+            ev += 1
+            continue
+        c = masked[i]
+        if c == "\\":
+            m = re.match(r"\\([a-zA-Z@]+)", masked[i:])
+            if m:
+                name = m.group(1)
+                if name in ("begingroup", "bgroup", "begin"):
+                    d += 1
+                elif name in ("endgroup", "egroup", "end"):
+                    d = max(0, d - 1)
+                i += m.end()
+            else:
+                i += 2
+            continue
+        if c == "{":
+            d += 1
+        elif c == "}":
+            d = max(0, d - 1)
+        i += 1
+    for c in cuts[ci:]:
+        result[c] = "\n".join(out)
+    return result
+
+
+def leading_style_context(text, masked, start, max_chars=1200):
     """Formatting that applies to a table but is written OUTSIDE its
     environment, e.g.
 
@@ -490,6 +595,7 @@ class Target:
     style_prefix: str = ""     # formatting applied from outside the environment
     caps_before: int = 0       # table numbers consumed earlier (this section)
     counter_seed: dict = field(default_factory=dict)  # counter -> value
+    wrapper_env: str = ""      # enclosing custom env that may alter width
 
 
 def line_of(text, off):
@@ -616,6 +722,41 @@ def scan_targets(text, masked):
         if env in UNSUPPORTED_ENVS:
             unsupported.append((env, line_of(text, body_off + m.start())))
 
+    gprefixes = global_style_prefixes(text, masked, body_off,
+                                      [s.start for _, s in targets])
+
+    # Environments that do not change the width a table typesets at.
+    # Anything else wrapping a table (tcolorbox-style report boxes, minipage,
+    # adjustbox, ...) narrows or rescales content in a way an isolated
+    # snippet cannot reproduce -- detect it and SAY so.
+    NEUTRAL_WRAPPERS = {
+        "document", "center", "flushleft", "flushright", "quote", "quotation",
+        "landscape", "table", "table*", "figure", "figure*", "sidewaystable",
+        "sidewaystable*", "threeparttable", "ThreePartTable", "small", "sloppypar",
+    }
+    env_tok = re.compile(r"\\(begin|end)\s*\{([A-Za-z*@]+)\}")
+    env_events = [(m.start(), m.group(1), m.group(2))
+                  for m in env_tok.finditer(masked, body_off)]
+
+    def innermost_custom_wrapper(pos):
+        stack = []
+        for off, kind, name in env_events:
+            if off >= pos:
+                break
+            if kind == "begin":
+                stack.append(name)
+            elif stack and name in stack:
+                for k in range(len(stack) - 1, -1, -1):
+                    if stack[k] == name:
+                        del stack[k:]
+                        break
+        for name in reversed(stack):
+            if (name not in NEUTRAL_WRAPPERS
+                    and name not in FLOAT_ENVS and name not in LONG_ENVS
+                    and name not in BARE_ENVS):
+                return name
+        return ""
+
     out, notes = [], []
     idx = 0
     for kind, s in targets:
@@ -669,9 +810,20 @@ def scan_targets(text, masked):
                 t.caption_pos = longtable_caption_position(env_masked, caps[0]["offset"])
         else:  # bare
             t.render_content = text[s.start:s.end]
-        t.style_prefix = leading_style_context(text, masked, s.start)
+        adjacent = leading_style_context(text, masked, s.start)
+        t.style_prefix = "\n".join(
+            x for x in (gprefixes.get(s.start, ""), adjacent) if x)
         if t.style_prefix:
             t.render_content = t.style_prefix + "\n" + t.render_content
+        t.wrapper_env = innermost_custom_wrapper(s.start)
+        if t.wrapper_env:
+            notes.append(
+                f"t{idx:02d} (line {t.line}) sits inside \\begin{{{t.wrapper_env}}} — "
+                f"a custom environment that may narrow or restyle its content. "
+                f"The flattened image is rendered OUTSIDE that box and may not "
+                f"match the original's width exactly (the --compare sheet shows "
+                f"the difference); use --skip {idx} to leave this table as live "
+                f"text if fidelity there matters more.")
         out.append(t)
     # ---- table-number bookkeeping -----------------------------------------
     # The table counter is reset by a parent counter: \chapter in book/report,
@@ -1330,6 +1482,18 @@ def norm_alnum(s):
     return re.sub(r"[^a-z0-9.]", "", s.lower())
 
 
+def probe_found(probe, hay_norm):
+    """Is `probe` present in normalized text, as a value rather than as a
+    fragment? Generated text glues digits together -- a table-of-contents
+    line normalizes to '....132.5calculation' (leader dots + page number +
+    section number), which contains '32.5' without any table having leaked.
+    Numeric probes therefore must not touch an adjacent digit or dot."""
+    if re.fullmatch(r"[\d.,]+", probe):
+        return re.search(r"(?<![\d.])" + re.escape(probe) + r"(?![\d.])",
+                         hay_norm) is not None
+    return probe in hay_norm
+
+
 def strip_latex(s):
     s = re.sub(r"\\[a-zA-Z@]+\s*(\[[^\]]*\])?", " ", s)
     s = re.sub(r"[{}&~$^_%]", " ", s)
@@ -1398,7 +1562,7 @@ def verify(targets, final_pdf, tools):
         if not t.ok:
             results.append((t, None, None))
             continue
-        leaked = [p for p in t.probes if p and p in hay]
+        leaked = [p for p in t.probes if p and probe_found(p, hay)]
         cap_probe = caption_probe(t.caption_text) if t.caption_text and not t.multi_caption else ""
         cap_found = (cap_probe in hay) if cap_probe else None
         if leaked or cap_found is False:
@@ -1477,6 +1641,12 @@ def source_literal_tokens(content, kind="float"):
         r"|definecolor|arrayrulewidth|setcounter|settowidth)\s*\*?"
         r"(?:\{[^{}]*\}|\\[a-zA-Z@]+)(?:\s*\[[^\]]*\])?\s*(?:\{[^{}]*\})?"
         r"(?:\s*\{[^{}]*\})?", " ", content)
+    # register assignments and caption setup are parameters, not content
+    content = re.sub(
+        r"\\(?:" + "|".join(sorted(STYLE_REGISTERS)) + r")(?![a-zA-Z])"
+        r"\s*=?\s*[-+]?[\d.]+\s*(?:pt|mm|cm|in|ex|em|bp|pc|dd|cc|sp|mu)?",
+        " ", content)
+    content = re.sub(r"\\captionsetup\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}", " ", content)
     # rules and spans: the column/range arguments are not content
     content = re.sub(r"\\(?:cmidrule|cline)\s*(?:\([^)]*\))?\s*\{[^{}]*\}",
                      " ", content)
@@ -1517,12 +1687,27 @@ def page_texts(pdf, tools, _cache={}):
     return _cache[key]
 
 
+def hyphen_explained(tok, hay):
+    """A token absent from extracted text is very often a word broken at a
+    line end inside a narrow cell (or a URL wrapped mid-string): extraction
+    interleaves the other columns' text between the two fragments, so the
+    token can never be found contiguously. Excuse the loss only when the
+    token splits into two pieces that BOTH appear in the text, with at least
+    one piece 5+ chars -- a genuinely dropped distinctive word (its fragments
+    absent too) stays unexcused."""
+    for k in range(3, len(tok) - 2):
+        a, b = tok[:k], tok[k:]
+        if (len(a) >= 5 or len(b) >= 5) and a in hay and b in hay:
+            return True
+    return False
+
+
 def pages_containing(pdf, probes, tools):
     """Page numbers of `pdf` whose text layer contains any of `probes`."""
     if not probes:
         return []
     return [i for i, page in enumerate(page_texts(pdf, tools), 1)
-            if any(pr in page for pr in probes)]
+            if any(probe_found(pr, page) for pr in probes)]
 
 
 def build_reference_doc(text, masked, targets, preamble_end, aux_name=None):
@@ -1544,10 +1729,14 @@ def build_reference_doc(text, masked, targets, preamble_end, aux_name=None):
         new = (new[:t.span.start]
                + f"\\begin{{preview}}%\n{body}%\n\\end{{preview}}"
                + new[t.span.end:])
-    # neutralize landscape wrappers: with `active` preview only the preview
-    # boxes are output, and removing the wrapper keeps reference pages
-    # unrotated so they align with the candidate PNGs
-    new = re.sub(r"\\(begin|end)\s*\{landscape\}", "", new)
+    # Neutralize landscape wrappers: with `active` preview only the preview
+    # boxes are output, and removing the rotation keeps reference pages
+    # aligned with the candidate PNGs. The wrapper must become a GROUP, not
+    # vanish: an environment scopes any styling set inside it (a bare
+    # \setlength inside \begin{landscape} is common), and deleting the group
+    # would leak that styling into every later table in the reference.
+    new = re.sub(r"\\begin\s*\{landscape\}", r"\\begingroup{}", new)
+    new = re.sub(r"\\end\s*\{landscape\}", r"\\endgroup{}", new)
     # import the main .aux so \ref and bibtex \cite inside cells resolve to
     # the same text the candidate snippet produced (otherwise they render as
     # "?" here and the pixel comparison flags a difference that is not real)
@@ -1715,14 +1904,16 @@ def visual_compare(done, text, masked, preamble_end, build, imgdir, maindir,
         # --- content completeness (all table kinds, page-break invariant):
         # every literal token written in the table source must appear in the
         # text layer of the PDF we rasterized.
-        missing, n_src = None, 0
+        missing, n_src, n_hyph = None, 0, 0
         cand_txt = (extract_pdf_text(Path(t.snippet_pdf), tools)
                     if t.snippet_pdf and Path(t.snippet_pdf).exists() else None)
         if cand_txt is not None:
             hay = norm_alnum(cand_txt)
             src = source_literal_tokens(t.render_content, t.kind)
             n_src = len(src)
-            missing = [tok for tok in src if tok not in hay]
+            absent = [tok for tok in src if tok not in hay]
+            missing = [tok for tok in absent if not hyphen_explained(tok, hay)]
+            n_hyph = len(absent) - len(missing)
 
         # --- candidate image (stack the pages of a multi-page table)
         cand = imgdir / Path(t.images[0]).name
@@ -1756,7 +1947,7 @@ def visual_compare(done, text, masked, preamble_end, build, imgdir, maindir,
                                  f"page{'s' if len(picked) > 1 else ''} "
                                  f"{','.join(map(str, pgs))})")
         if ref is None:
-            results.append((t, None, None, "none", missing, n_src))
+            results.append((t, None, None, "none", missing, n_src, n_hyph))
             continue
 
         ref_kind = "preview" if t.index in ref_map else "origpages"
@@ -1764,7 +1955,7 @@ def visual_compare(done, text, masked, preamble_end, build, imgdir, maindir,
         score = compare_images(ref, cand, side, magick, ref_label,
                                f"FLATTENED  t{t.index:02d}  (PNG in the output)",
                                font=font)
-        results.append((t, score, side, ref_kind, missing, n_src))
+        results.append((t, score, side, ref_kind, missing, n_src, n_hyph))
     return results
 
 
@@ -2102,7 +2293,7 @@ def process(args):
                                      tex_env=tex_env)
         if cmp_results:
             bad = 0
-            for t, score, side, ref_kind, missing, n_src in cmp_results:
+            for t, score, side, ref_kind, missing, n_src, n_hyph in cmp_results:
                 # content completeness is authoritative and page-break safe;
                 # the pixel score only means something when the reference came
                 # through the SAME preview cropping path as the candidate
@@ -2110,20 +2301,20 @@ def process(args):
                     content = "content n/a"
                     content_bad = False
                 else:
-                    # A word hyphenated across lines inside a narrow cell can
-                    # be unrecoverable from the text layer, because extraction
-                    # interleaves neighbouring columns between the fragments.
-                    # Tolerate a few such tokens; a genuinely dropped row costs
-                    # far more than that and still fails.
-                    tol = max(3, int(0.03 * n_src))
+                    # tokens whose fragments both appear were words broken at
+                    # a line end (hyphen_explained); they are accounted for.
+                    # A small residue is still tolerated for extraction
+                    # artifacts; a dropped row far exceeds it and fails.
+                    tol = max(2, int(0.02 * n_src))
                     content_bad = len(missing) > tol
+                    found = n_src - len(missing) - n_hyph
+                    hyph = f" +{n_hyph} hyphen-split" if n_hyph else ""
                     if not missing:
-                        content = f"content {n_src}/{n_src} ok"
+                        content = f"content {found}/{n_src}{hyph} ok"
                     elif content_bad:
-                        content = f"content {n_src - len(missing)}/{n_src} tokens"
+                        content = f"content {found}/{n_src}{hyph} tokens"
                     else:
-                        content = (f"content {n_src - len(missing)}/{n_src} "
-                                   f"(~hyphenation)")
+                        content = f"content {found}/{n_src}{hyph} (~tolerated)"
                 pixel_valid = ref_kind == "preview"
                 pixel_bad = (pixel_valid and score is not None
                              and score > args.compare_threshold)
@@ -2144,6 +2335,12 @@ def process(args):
                     if missing:
                         warn(f"         missing from the flattened image: "
                              f"{missing[:8]}{' ...' if len(missing) > 8 else ''}")
+                    if t.wrapper_env and not content_bad:
+                        warn(f"         likely cause: this table sits inside "
+                             f"\\begin{{{t.wrapper_env}}}, whose inner width an "
+                             f"isolated snippet cannot reproduce — content is "
+                             f"complete; compare the sheet and use "
+                             f"--skip {t.index} if the original look is required")
                 else:
                     print(line)
                     if missing:

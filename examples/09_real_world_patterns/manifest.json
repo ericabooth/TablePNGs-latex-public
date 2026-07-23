@@ -1,7 +1,9 @@
 {
   "name": "09_real_world_patterns",
-  "engines": ["pdflatex"],
-  "expected_tables": 2,
+  "engines": [
+    "pdflatex"
+  ],
+  "expected_tables": 4,
   "needs_bibtex": false,
-  "description": "Regression fixture: house .sty, \\counterwithin{table}{section}, \\begingroup styling outside the environment, longtable caption with \\footnote + nested \\label, comments inside table bodies, macro in caption"
+  "description": "Regression fixture: house .sty, \\counterwithin{table}{section}, \\begingroup styling outside the environment, longtable caption with \\footnote + nested \\label, comments inside table bodies, macro in caption; primitive register assignment (\\hfuzz=20pt); document-level leaked \\setlength/\\arraystretch"
 }

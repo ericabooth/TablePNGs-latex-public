@@ -12,6 +12,12 @@
 %      words must not be mistaken for table content
 %   6. a macro inside a caption, which expands in the PDF and must not break
 %      the caption verification probe
+%   7. a TeX register assigned primitive-style (\hfuzz=20pt) in the styling
+%      that precedes a table -- carrying the bare register name without its
+%      value once broke the snippet compile
+%   8. a top-level \setlength/\renewcommand that LEAKS document-wide from
+%      one section into the next; the later table's original rendering
+%      depends on it, so snippets must replay document-level style state
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{housestyle}
@@ -121,5 +127,56 @@ F-140 & Schleicher Pass & 53.3 & 1{,}797 \\
 \endgroup
 
 The panel closes the inventory section.
+
+% These two assignments deliberately leak document-wide (no group), the way
+% real reports do. Table~\ref{tab:leaked} below depends on them: its
+% original rendering is tighter and taller than the class defaults, and a
+% snippet that misses this state renders it visibly differently.
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{1.18}
+
+\section{Addendum}
+
+Table~\ref{tab:leaked} inherits table styling set at document level in the
+previous section, and Table~\ref{tab:register} sits inside a group that also
+relaxes an overfull-box register primitive-style.
+
+\begin{table}[htbp]
+\centering
+\caption{Quarterly staffing by facility group, styled by leaked document
+state.\label{tab:leaked}}
+\begin{tabular}{lrrrr}
+\toprule
+Group & Q1 & Q2 & Q3 & Q4 \\
+\midrule
+Pineywoods cluster & 412 & 436 & 447 & 4{,}218 \\
+Trans-Pecos cluster & 218 & 224 & 239 & 2{,}512 \\
+High Plains cluster & 197 & 201 & 214 & 2{,}087 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begingroup
+\footnotesize
+\hfuzz=20pt
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}L{3.4cm}C{1.8cm}C{2.0cm}C{2.2cm}@{}}
+\caption{Registered capacity additions, one-page longtable behind a
+register assignment.\label{tab:register}}\\
+\toprule
+Facility & MW & Vintage & Status \\
+\midrule
+\endfirsthead
+\bottomrule
+\endlastfoot
+Kestrel Bluff & 62 & 2024 & Operating \\
+Sabine Verge & 48 & 2024 & Operating \\
+Llano Saddle & 75 & 2025 & Commissioning \\
+Pecos Terrace & 91 & 2025 & Permitted \\
+Bowie Cut & 37 & 2026 & Announced \\
+\end{longtable}
+\endgroup
+
+The addendum closes the report.
 
 \end{document}

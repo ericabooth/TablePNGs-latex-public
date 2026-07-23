@@ -304,12 +304,20 @@ to Word cleanly."
 - **Formatting applied from outside the table.** A table is often wrapped in
   styling it does not contain:
   ```latex
-  \begingroup\footnotesize\setlength{\tabcolsep}{3pt}
+  \begingroup\footnotesize\setlength{\tabcolsep}{3pt}\hfuzz=20pt
   \begin{longtable}{...}
   ```
-  That context is captured and reused, because rendering the table at the
-  wrong size changes its column widths — and an image wider than `\linewidth`
-  then gets scaled down, making the table smaller than it is in your document.
+  That context is captured and reused — including primitive register
+  assignments like `\hfuzz=20pt` — because rendering the table at the wrong
+  size changes its column widths, and an image wider than `\linewidth` then
+  gets scaled down, making the table smaller than it is in your document.
+  Style state that *leaks document-wide* is replayed too: a top-level
+  `\setlength{\tabcolsep}{4pt}` in one appendix silently restyles every
+  table after it, and the snippets reproduce that.
+- **Split style trees.** A house style in `../shared/` that
+  `\RequirePackage`s a sibling package resolves via an automatic `TEXINPUTS`
+  extension covering every local style directory the document pulls in, the
+  same way project build scripts usually arrange it.
 - **Multi-page tables** are re-emitted as a one-column `longtable` of page
   images. Rows break across pages natively, so the chunks stay in place
   instead of floating, and the caption is reproduced verbatim in the same kind
@@ -341,6 +349,13 @@ to Word cleanly."
 
 ## Limitations
 
+- A table inside a **custom box environment** (a tcolorbox-style call-out,
+  `minipage`, `adjustbox`, ...) is typeset against that box's inner width,
+  which an isolated snippet cannot reproduce. The table still flattens with
+  complete content, but its proportions can differ from the original — the
+  run names the wrapper environment, the `--compare` sheet shows the
+  difference, and `--skip <n>` leaves that table as live text if the
+  original look matters more.
 - Tables inside `beamer` frames are out of scope (slide decks are rarely
   converted to Word).
 - A float containing several `\caption`s is flattened with the captions baked
