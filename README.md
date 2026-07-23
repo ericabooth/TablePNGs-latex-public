@@ -368,3 +368,6 @@ to Word cleanly."
 ## License
 
 MIT. Issues and PRs welcome.
+
+##Author
+Eric A. Booth, Sr. Researcher, Texas2036.org, mailto: eric.a.booth@gmail.com
