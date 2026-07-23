@@ -722,11 +722,18 @@ STYLE_LOAD_RE = re.compile(
     r"|\\documentclass\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}")
 
 
-def collect_local_styles(preamble, basedir, depth=4, _seen=None):
+def collect_local_styles(preamble, basedir, depth=4, _seen=None, dirs=None,
+                         extra_dirs=()):
     """Text of every LOCAL .sty/.cls file the preamble pulls in, following
     nested \\RequirePackage chains. Engine-defining packages such as fontspec
     are routinely buried inside a house style file rather than named in the
-    document, so detection has to look there too."""
+    document, so detection has to look there too.
+
+    A house style in ../shared/ often does \\RequirePackage{sibling} for a
+    package sitting NEXT TO IT, which kpathsea resolves against the compile
+    cwd, not the requiring file -- so each found style's own directory is
+    searched too, and `dirs` (if given) collects every directory that
+    contributed a file, for use as a TEXINPUTS path at compile time."""
     if _seen is None:
         _seen = set()
     if depth <= 0:
@@ -738,18 +745,27 @@ def collect_local_styles(preamble, basedir, depth=4, _seen=None):
             name = name.strip()
             if not name:
                 continue
-            for ext in (".sty", ".cls", ""):
-                p = (Path(basedir) / (name + ext))
-                if p.is_file() and p.suffix in (".sty", ".cls"):
-                    rp = str(p.resolve())
-                    if rp in _seen:
+            for parent in (basedir, *extra_dirs):
+                found = None
+                for ext in (".sty", ".cls"):
+                    p = Path(parent) / (name + ext)
+                    if p.is_file():
+                        found = p
                         break
-                    _seen.add(rp)
-                    body, _ = read_text_guess(p)
-                    chunks.append(body)
-                    chunks.append(collect_local_styles(body, p.parent,
-                                                       depth - 1, _seen))
+                if not found:
+                    continue
+                rp = str(found.resolve())
+                if rp in _seen:
                     break
+                _seen.add(rp)
+                if dirs is not None:
+                    dirs.add(str(found.parent.resolve()))
+                body, _ = read_text_guess(found)
+                chunks.append(body)
+                chunks.append(collect_local_styles(
+                    body, found.parent, depth - 1, _seen, dirs,
+                    extra_dirs=(basedir,)))
+                break
     return "\n".join(chunks)
 
 
@@ -901,7 +917,25 @@ def doctor():
 # --------------------------------------------------------------------------
 # LaTeX compilation
 # --------------------------------------------------------------------------
-def run_latex(engine, texfile, outdir, cwd, passes=1, shell_escape=False, timeout=300):
+def tex_environment(style_dirs):
+    """Environment for LaTeX subprocesses: TEXINPUTS extended with the
+    directories of the document's local style files, so a house style in
+    ../shared/ that \\RequirePackage's a sibling package resolves the same
+    way it does under the user's own build scripts. The trailing separator
+    keeps the default search path."""
+    if not style_dirs:
+        return None
+    env = os.environ.copy()
+    existing = env.get("TEXINPUTS", "")
+    parts = list(style_dirs)
+    if existing:
+        parts.append(existing.rstrip(os.pathsep))
+    env["TEXINPUTS"] = os.pathsep.join(parts) + os.pathsep
+    return env
+
+
+def run_latex(engine, texfile, outdir, cwd, passes=1, shell_escape=False,
+              timeout=300, env=None):
     """Compile texfile (absolute path) with output into outdir, cwd set to the
     main document's directory so relative \\input/graphics paths resolve.
     Returns (ok, log_excerpt, pdf_path)."""
@@ -914,7 +948,7 @@ def run_latex(engine, texfile, outdir, cwd, passes=1, shell_escape=False, timeou
     cmd.append(str(texfile))
     log = ""
     for _ in range(passes):
-        rc, log = run(cmd, cwd=cwd, timeout=timeout)
+        rc, log = run(cmd, cwd=cwd, timeout=timeout, env=env)
         if rc != 0:
             break
     pdf = outdir / (Path(texfile).stem + ".pdf")
@@ -1624,7 +1658,8 @@ def compare_images(ref, cand, out_sidebyside, magick, label_ref, label_cand,
 
 
 def visual_compare(done, text, masked, preamble_end, build, imgdir, maindir,
-                   engine, aux_name, encoding, args, tools, orig_pdf):
+                   engine, aux_name, encoding, args, tools, orig_pdf,
+                   tex_env=None):
     """Render every flattened table a second time IN CONTEXT and compare it
     against the PNG that went into the document."""
     magick = which("magick") or which("compare")
@@ -1658,7 +1693,7 @@ def visual_compare(done, text, masked, preamble_end, build, imgdir, maindir,
             encoding=encoding)
         ok, log, ref_pdf = run_latex(engine, ref_tex, refdir, maindir, passes=2,
                                      shell_escape=args.shell_escape,
-                                     timeout=args.timeout)
+                                     timeout=args.timeout, env=tex_env)
         if not ok:
             warn("visual check: the in-context reference document failed to "
                  f"compile; falling back to original-PDF pages.\n--- log ---\n{log}")
@@ -1759,6 +1794,17 @@ def process(args):
         info(f"inlined {n_inlined} \\input/\\include file(s) for scanning")
     masked = mask_comments(text)
 
+    # local style dirs feed TEXINPUTS so sibling \RequirePackage resolves
+    style_dirs = set()
+    _doc0 = re.search(r"\\begin\s*\{document\}", masked)
+    collect_local_styles(text[:_doc0.start()] if _doc0 else text,
+                         maindir, dirs=style_dirs)
+    style_dirs.discard(str(maindir.resolve()))
+    tex_env = tex_environment(sorted(style_dirs))
+    if style_dirs:
+        info(f"TEXINPUTS extended with local style dir(s): "
+             f"{', '.join(sorted(style_dirs))}")
+
     engine = args.engine
     auto_engine = engine == "auto"
     if auto_engine:
@@ -1826,7 +1872,7 @@ def process(args):
     info(f"compiling original with {engine} (baseline)...")
     ok, log, orig_pdf = run_latex(engine, main_tex, build / "orig", maindir,
                                   passes=2, shell_escape=args.shell_escape,
-                                  timeout=args.timeout)
+                                  timeout=args.timeout, env=tex_env)
     # Retry other engines only when the failure actually looks like an engine
     # mismatch. A missing graphics file or an undefined macro fails identically
     # under every engine, and retrying just buries the real error.
@@ -1844,7 +1890,7 @@ def process(args):
                  f"retrying with {alt}...")
             ok2, log2, pdf2 = run_latex(alt, main_tex, build / "orig", maindir,
                                         passes=2, shell_escape=args.shell_escape,
-                                        timeout=args.timeout)
+                                        timeout=args.timeout, env=tex_env)
             if ok2:
                 info(f"{alt} succeeded — using {alt} for this run "
                      f"(pass --engine {alt} to skip this retry next time)")
@@ -1915,7 +1961,7 @@ def process(args):
         snip_tex.write_text(snippet, encoding=encoding)
         ok, log, pdf = run_latex(engine, snip_tex, snipdir, maindir,
                                  passes=passes, shell_escape=args.shell_escape,
-                                 timeout=args.timeout)
+                                 timeout=args.timeout, env=tex_env)
         if not ok and t.method == "preview":
             # fallback: some content (e.g. stray \\pagebreak) rejects preview
             snippet = build_page_snippet(preamble, t.render_content, aux_name,
@@ -1924,7 +1970,7 @@ def process(args):
             snip_tex.write_text(snippet, encoding=encoding)
             ok, log, pdf = run_latex(engine, snip_tex, snipdir, maindir,
                                      passes=2, shell_escape=args.shell_escape,
-                                     timeout=args.timeout)
+                                     timeout=args.timeout, env=tex_env)
             t.method = "pagecrop-fallback"
         if not ok:
             warn(f"t{t.index:02d} ({t.env}, line {t.line}) failed to compile — "
@@ -1994,7 +2040,7 @@ def process(args):
             shutil.copy(side, outbuild / (out_tex.stem + ext))
     ok, log, final_pdf = run_latex(engine, out_tex, outbuild, maindir,
                                    passes=2, shell_escape=args.shell_escape,
-                                   timeout=args.timeout)
+                                   timeout=args.timeout, env=tex_env)
     if not ok:
         die(f"the flattened document ({out_tex.name}) failed to compile, so no "
             f"PDF was produced.\n"
@@ -2052,7 +2098,8 @@ def process(args):
     if args.compare:
         cmp_results = visual_compare(done, text, masked, doc_m.start(), build,
                                      imgdir, maindir, engine, aux_name,
-                                     encoding, args, tools, orig_pdf)
+                                     encoding, args, tools, orig_pdf,
+                                     tex_env=tex_env)
         if cmp_results:
             bad = 0
             for t, score, side, ref_kind, missing, n_src in cmp_results:
