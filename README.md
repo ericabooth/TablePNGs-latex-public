@@ -369,5 +369,6 @@ to Word cleanly."
 
 MIT. Issues and PRs welcome.
 
-##Author
-Eric A. Booth, Sr. Researcher, Texas2036.org, mailto: eric.a.booth@gmail.com
+## Author
+
+Eric A. Booth, Sr Researcher, Texas 2036 (eric.a.booth@gmail.com).
