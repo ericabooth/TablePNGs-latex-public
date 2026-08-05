@@ -124,6 +124,15 @@ python3 -c "import re;t=open('prepped.tex').read();print(sum(1 for f in re.finda
 **Unknown macros vanish mid-word.** `\underbar{sh}eet(tabname)` → `eet(tabname)`;
 `\hskip 4em` → the literal text `4em`. Invisible to word counts; visible on a page.
 
+**Source drift between render and substitution.** If the `.tex` changes after
+`render_tikz.py` runs (an edit adds or removes a diagram), every later PNG lands in
+the wrong figure: counts match, order doesn't, and nothing warns. `render_tikz.py`
+now writes `tikz_manifest.json` (per-block source hashes) and `prep_book.py` refuses
+to substitute against a stale manifest. Two subtleties learned fixing this: hash the
+**raw** source, because the prep script's own cleanup edits macros *inside* tikz
+blocks; and test the guard in both directions — its false-positive on a fresh render
+was itself a bug.
+
 **Silent whole-element loss.** A `\keywords{...}` line disappeared entirely. Only the
 sentence-level diff in Step 5 catches this.
 
@@ -187,6 +196,15 @@ across page breaks.
 ---
 
 ## Step 5: VERIFY — every item, every time
+
+`scripts/verify_docx.py OUT.docx PREPPED.tex [ORIGINAL.pdf]` automates the checks
+below (code fidelity, element counts, the code-in-figure trap, heading styles,
+leakage, unresolved refs, word retention) with a nonzero exit on failure. The
+page-reading step is the one part it cannot replace.
+
+Calibration note: measure word retention on **filtered words** (strip punctuation,
+keep tokens >2 chars), not raw tokens — the original PDF's TOC dot leaders, index,
+and page numbers legitimately vanish, and raw counting reads that as ~6% fake loss.
 
 ```bash
 soffice --headless --convert-to pdf final.docx --outdir .
@@ -281,3 +299,6 @@ TeX Live and Homebrew. macOS `pip` refuses system installs (PEP 668); use a venv
 - `scripts/make_ref.py` — builds the reference.docx (fonts, sizes, margins,
   footnote and block-text styling).
 - `scripts/polish_docx.py` — post-conversion table fixes.
+- `scripts/verify_docx.py` — the Step-5 battery as one command.
+- `scripts/swap_docx_image.py` — surgical single-figure replacement in a delivered .docx.
+- `render_tikz.py`/`prep_book.py` share `tikz_manifest.json`, the order-integrity guard.

@@ -88,6 +88,25 @@ body = rewrite_braced(body, 'setpartpreamble', '\n\n', '\n\n', optional=True)
 # Blocks are numbered in document order by render_tikz.py, so replace in order.
 counter = [0]
 
+# Refuse to substitute against a stale render. tikz_manifest.json records the
+# hash of each block at render time. Verify against the RAW source here, before
+# any preprocessing touches the text: the cleanup passes below edit macros
+# inside tikz blocks too, so hashing after them would always mismatch.
+import hashlib, json
+_mpath = pathlib.Path(TIKZ) / 'tikz_manifest.json'
+if _mpath.exists():
+    _manifest = json.loads(_mpath.read_text())
+    _raw_blocks = re.findall(r'\\begin\{tikzpicture\}.*?\\end\{tikzpicture\}', src, re.S)
+    if len(_raw_blocks) != len(_manifest):
+        sys.exit(f'FATAL: {len(_raw_blocks)} tikzpictures in source but manifest has '
+                 f'{len(_manifest)}. The source changed after render_tikz.py ran; re-render first.')
+    for _i, _b in enumerate(_raw_blocks, 1):
+        if _manifest.get(f'tikz{_i:02d}') != hashlib.md5(_b.encode()).hexdigest():
+            sys.exit(f'FATAL: tikz{_i:02d} does not match the rendered manifest. '
+                     f'The source changed after render_tikz.py ran; re-render first.')
+else:
+    sys.stderr.write('WARNING: no tikz_manifest.json; diagram order unverified\n')
+
 def png_size(path):
     """Width/height from the PNG IHDR chunk, no image library needed."""
     try:

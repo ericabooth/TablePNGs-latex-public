@@ -62,6 +62,15 @@ for i, (a, b, body) in enumerate(blocks, 1):
     else:
         fail.append((i, 'pdftoppm produced nothing'))
 
+# Manifest: hash of each block's source, so prep_book.py can verify that the
+# document has not changed between rendering and substitution. Without this, an
+# edit that adds or removes a tikzpicture silently shifts every later diagram
+# into the wrong figure.
+import hashlib, json
+manifest = {f'tikz{i:02d}': hashlib.md5(b[2].encode()).hexdigest()
+            for i, b in enumerate(blocks, 1)}
+(outdir / 'tikz_manifest.json').write_text(json.dumps(manifest, indent=1))
+
 print(f'rendered {len(ok)} / {len(blocks)}')
 for i, why in fail[:5]:
     print(f'  FAILED #{i}: {why[:300]}')
