@@ -5,14 +5,40 @@ Word cannot draw TikZ. Rather than lose the book's diagrams, compile each one
 on its own with the book's real colour and style definitions, crop it, and hand
 back a PNG that the .docx can embed in place of the picture.
 
-Usage: render_tikz.py ASSEMBLED.tex PREAMBLE.tex OUTDIR
+Usage: render_tikz.py ASSEMBLED.tex PREAMBLE.tex OUTDIR [AUX]
+
+Pass the document's .aux whenever any diagram contains \ref or \pageref:
+the standalone compile has no label table, so without it every in-diagram
+cross-reference renders as "??" and ships that way into the .docx. The
+manifest still hashes the RAW block text, so aux substitution does not
+disturb the order-integrity guard prep_book.py checks.
 """
 import re, subprocess, sys, pathlib, shutil
 
 src_path, preamble_path, outdir = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
+aux_path = sys.argv[4] if len(sys.argv) > 4 else ''
 outdir.mkdir(parents=True, exist_ok=True)
 src = pathlib.Path(src_path).read_text()
 pre = pathlib.Path(preamble_path).read_text()
+
+# Label table from the .aux, for resolving \ref inside diagrams.
+labs = {}
+if aux_path:
+    aux = pathlib.Path(aux_path).read_text(errors='replace')
+    for m in re.finditer(r'\\newlabel\{([^}]+)\}\{\{([^{}]*)\}', aux):
+        labs[m.group(1)] = m.group(2)
+
+def resolve_refs(body):
+    """Replace \\ref{x} (and \\S\\ref{x}) with the aux number, for the
+    standalone compile only. Unknown labels are left alone, so the "??"
+    stays visible instead of being papered over with wrong text."""
+    if not labs:
+        if re.search(r'\\ref\{', body):
+            sys.stderr.write('WARNING: diagram contains \\ref but no AUX was '
+                             'given; it will render as "??"\n')
+        return body
+    return re.sub(r'\\ref\{([^}]+)\}',
+                  lambda m: labs.get(m.group(1), m.group(0)), body)
 
 # Pull only what a standalone tikz compile needs: colours and the tikzset block.
 colors = '\n'.join(re.findall(r'\\definecolor\{[^}]*\}\{[^}]*\}\{[^}]*\}', pre))
@@ -47,7 +73,8 @@ ok, fail = [], []
 for i, (a, b, body) in enumerate(blocks, 1):
     stem = f'tikz{i:02d}'
     tex = work / f'{stem}.tex'
-    tex.write_text(TEMPLATE % dict(libs=libs, colors=colors, tikzset=tikzset, body=body))
+    tex.write_text(TEMPLATE % dict(libs=libs, colors=colors, tikzset=tikzset,
+                                   body=resolve_refs(body)))
     r = subprocess.run(['pdflatex', '-interaction=nonstopmode', '-halt-on-error', f'{stem}.tex'],
                        cwd=work, capture_output=True, text=True)
     pdf = work / f'{stem}.pdf'

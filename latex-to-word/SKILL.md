@@ -146,6 +146,32 @@ arguments, keep the third, then collapse any `\[$...$\]` left behind.
 **Escapes in `re.sub` replacements.** `re.sub(p, '\\caption{...}', s)` raises
 `bad escape \c`. Use a lambda for any replacement containing backslashes.
 
+**Relative directory arguments break on every other machine.** The prep script
+prefixes every relative `\includegraphics` path with FIGDIR — including the
+tikz PNGs it just placed, if TIKZDIR was passed as a relative path. The result
+is pandoc failing on `FIGDIR/tikz/tikz01.png`, a path that exists nowhere. The
+scripts now `Path(...).resolve()` both directory arguments at startup; if you
+copy this pattern into a new prep script, do the same. A run that works only
+from one directory on one machine is a run that has not been tested.
+
+**Cross-references inside TikZ render as `??`.** `render_tikz.py` compiles each
+diagram standalone, where no label table exists, so a `\ref{ch:x}` inside a
+node ships as `??` into the finished `.docx` — and every automated check
+passes, because the "??" lives inside a PNG. Pass the document's `.aux` as the
+optional fourth argument; the renderer substitutes resolved numbers before
+compiling (raw source is still what the manifest hashes, so the order guard is
+unaffected). The renderer warns when a diagram contains `\ref` and no AUX was
+given.
+
+**Multi-argument macros leave their tails behind.** `strip_braced` deleting
+`\addcontentsline{toc}{section}{Exercises}` as a ONE-argument macro leaves
+`{section}{Exercises}` in the body, which pandoc prints as the literal text
+`sectionExercises` under every chapter's Exercises heading — 15 leaks on the
+reference book, invisible to word counts and element counts alike. Know each
+macro's arity: `strip_braced(body, 'addcontentsline', nargs=3)`. When a
+stripped macro takes more than one brace group, count them in the LaTeX
+manual, not from one example.
+
 ---
 
 ## Step 3: STYLE the reference document
@@ -295,7 +321,9 @@ TeX Live and Homebrew. macOS `pip` refuses system installs (PEP 668); use a venv
 - `scripts/prep_book.py` — kaobook: margin notes, callouts, wide floats,
   `\setpartpreamble`, index, TikZ substitution, code-in-figure unwrap.
 - `scripts/render_tikz.py` — compiles each `tikzpicture` standalone with the real
-  preamble colours/styles, crops, exports 300dpi PNG.
+  preamble colours/styles, crops, exports 300dpi PNG. Pass the document's
+  `.aux` as the optional fourth argument whenever any diagram contains
+  `\ref`, or the reference renders as "??" inside the PNG.
 - `scripts/make_ref.py` — builds the reference.docx (fonts, sizes, margins,
   footnote and block-text styling).
 - `scripts/polish_docx.py` — post-conversion table fixes.

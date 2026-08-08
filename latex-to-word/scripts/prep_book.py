@@ -18,27 +18,43 @@ import re, sys, pathlib
 
 src   = pathlib.Path(sys.argv[1]).read_text()
 OUT   = sys.argv[2]
-TIKZ  = sys.argv[3]
-FIGD  = sys.argv[4]
+import pathlib as _pl
+# Resolve both directories to absolute paths up front. The tikz images are
+# emitted into the body as bare paths and a later pass prefixes every
+# RELATIVE includegraphics with FIGD -- so a relative TIKZ argument sent the
+# tikz images to FIGD/tikz/..., which exists on no machine. The documented
+# invocation passes "tikz"; only an absolute path is safe on every machine.
+TIKZ  = str(_pl.Path(sys.argv[3]).resolve())
+FIGD  = str(_pl.Path(sys.argv[4]).resolve())
 AUX   = sys.argv[5] if len(sys.argv) > 5 else ''
 
 
-def strip_braced(text, macro):
-    """Delete \\macro{...} entirely, honouring nested braces."""
+def strip_braced(text, macro, nargs=1):
+    """Delete \\macro{...}(...{...}) entirely -- nargs consecutive brace
+    groups, honouring nesting. A macro like \\addcontentsline takes THREE
+    groups; eating only the first leaves `{section}{Exercises}` behind,
+    which pandoc renders as the literal text `sectionExercises` under
+    every heading it was meant to register (15 leaks on the reference
+    book before this grew the nargs parameter)."""
     out, i, tag = [], 0, '\\' + macro + '{'
     while True:
         j = text.find(tag, i)
         if j < 0:
             out.append(text[i:]); return ''.join(out)
         out.append(text[i:j])
-        k, depth = j + len(tag), 1
-        while k < len(text) and depth:
-            if text[k] == '{': depth += 1
-            elif text[k] == '}':
-                depth -= 1
-                if depth == 0: break
-            k += 1
-        i = k + 1
+        k = j + len(tag) - 1                 # at the first group's '{'
+        for _ in range(nargs):
+            while k < len(text) and text[k] != '{':
+                k += 1
+            depth = 0
+            while k < len(text):
+                if text[k] == '{': depth += 1
+                elif text[k] == '}':
+                    depth -= 1
+                    if depth == 0: break
+                k += 1
+            k += 1                           # past this group's '}'
+        i = k
 
 
 def rewrite_braced(text, macro, open_s, close_s, optional=False):
@@ -138,7 +154,7 @@ for mac in ('index', 'glsadd', 'pagelayout', 'labch', 'margintoc'):
 body = re.sub(r'\\(pagelayout|margintoc|blindtext|listoffigures|listoftables|'
               r'printindex|printglossar\w*|tableofcontents|mainmatter|frontmatter|'
               r'backmatter|appendixpage|addcontentsline\{[^}]*\}\{[^}]*\})\b', '', body)
-body = strip_braced(body, 'addcontentsline')
+body = strip_braced(body, 'addcontentsline', nargs=3)
 
 # \resizebox{w}{h}{ $math$ } defeats pandoc's math reader. Drop the wrapper and
 # its two size arguments, keeping the maths itself.
